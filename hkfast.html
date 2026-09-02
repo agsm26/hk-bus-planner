@@ -45,6 +45,13 @@
   .btns { display:flex; gap:6px; }
   .btn { flex:1; min-height:48px; border:2px solid #d1d5db; background:white;
          border-radius:8px; font-size:0.8824rem; font-weight:700; cursor:pointer; padding:6px; }
+
+  /* Icon only, and shorter than the 48px used everywhere else. It is the one
+     control here that trades tap size for the row it used to occupy — the
+     pin is still 64px wide and carries a title and aria-label, because the
+     word "location" is gone from the face of it. */
+  .gpsbtn { min-height:42px; height:42px; flex:0 0 auto; font-size:1.1765rem;
+            padding:0; line-height:1; }
   .btn:hover { background:#f3f4f6; }
   .btn.armed { background:#1e3a8a; color:white; border-color:#1e3a8a; }
 
@@ -70,15 +77,52 @@
   #walkinfo .big { font-size:1.3529rem; font-weight:800; color:#111; margin:4px 0; }
   #walkinfo .warn { font-size:0.8235rem; color:#92400e; margin-top:8px; line-height:1.4; }
 
-  .favs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  /* The label keeps only the width its words need; the five favourite slots
+     take the rest of the row. */
+  .flabelrow { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .flabelrow .flabel { flex:0 0 auto; margin-bottom:0; }
+
+  /* Five slots, always five, so the row never changes height as favourites
+     come and go and each place keeps the same position — and so the same
+     colour — every time the screen is opened.
+     They share the leftover width rather than wrapping: a second row here
+     would cost exactly the line this layout was meant to save. */
+  .favs { display:flex; gap:5px; flex:1; min-width:0; }
+  .favchip, .favslot {
+    flex:1 1 0; min-width:0; height:46px; border-radius:10px;
+    padding:0; box-sizing:border-box;
+  }
   .favchip { position:relative; border:2px solid #15803d; background:#f0fdf4; color:#15803d;
-             border-radius:10px; width:52px; height:52px; font-size:1.1176rem; font-weight:800;
-             cursor:pointer; padding:0; flex:0 0 auto; }
-  .favchip:hover { background:#dcfce7; }
-  .favchip .x { position:absolute; top:-7px; right:-7px; width:22px; height:22px;
-                border-radius:11px; background:#991b1b; color:white; font-size:0.7647rem;
-                font-weight:800; line-height:22px; }
+             font-size:1.0588rem; font-weight:800; cursor:pointer;
+             overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .favchip:hover { filter:brightness(.96); }
+
+  /* One colour per position. A favourite is recognised by where it sits and
+     what colour it is long before the two characters are read, which is the
+     whole point of a chip this small. */
+  .favchip.c1 { border-color:#15803d; background:#f0fdf4; color:#15803d; }
+  .favchip.c2 { border-color:#1d4ed8; background:#eff6ff; color:#1d4ed8; }
+  .favchip.c3 { border-color:#7e22ce; background:#faf5ff; color:#7e22ce; }
+  .favchip.c4 { border-color:#c2410c; background:#fff7ed; color:#c2410c; }
+  .favchip.c5 { border-color:#0f766e; background:#f0fdfa; color:#0f766e; }
+
+  /* An empty slot is deliberately NOT a button: a target that cannot do
+     anything reads as a broken app. It is a dashed outline holding the
+     place, in that position's own colour, faintly. */
+  .favslot { border:2px dashed #d1d5db; background:transparent; }
+  .favslot.c1 { border-color:#bbf7d0; }
+  .favslot.c2 { border-color:#bfdbfe; }
+  .favslot.c3 { border-color:#e9d5ff; }
+  .favslot.c4 { border-color:#fed7aa; }
+  .favslot.c5 { border-color:#99f6e4; }
+
+  .favchip .x { position:absolute; top:-6px; right:-6px; width:20px; height:20px;
+                border-radius:10px; background:#991b1b; color:white; font-size:0.7059rem;
+                font-weight:800; line-height:20px; }
   .favempty { font-size:0.8235rem; color:#6b7280; font-style:italic; margin-bottom:8px; }
+
+  /* Search, with My location stacked above it where there is one. */
+  .fcol { display:flex; flex-direction:column; gap:6px; flex:0 0 auto; }
   .addfav { border:2px solid #15803d; background:white; color:#15803d;
             border-radius:8px; padding:10px; font-size:0.8824rem; font-weight:700;
             cursor:pointer; min-height:46px; width:100%; margin-top:8px; }
@@ -562,16 +606,25 @@
 
   <!-- START: three ways to set it, exactly like DESTINATION below. -->
   <div class="field">
-    <div class="flabel start">● 起點</div>
-    <div class="favs" id="start-favs"></div>
+    <!-- Label and favourites share one row: the five slots were a whole line
+         of their own before, and on a phone that line was worth more than the
+         repetition of showing them under a heading. -->
+    <div class="flabelrow">
+      <div class="flabel start">● 起點</div>
+      <div class="favs" id="start-favs"></div>
+    </div>
     <div class="chosen empty" id="start-chosen">未設定</div>
     <button class="addfav" id="start-save" style="display:none">⭐ 加入常用地點</button>
     <div class="frow">
       <input id="start-text" type="text" placeholder="輸入大廈或地點名稱…" autocomplete="off">
-      <button class="gobtn" id="start-go">搜尋</button>
+      <!-- GPS sits above Search in one column instead of taking its own
+           full-width row underneath. -->
+      <div class="fcol">
+        <button class="btn gpsbtn" id="start-gps" title="我的位置" aria-label="我的位置">📍</button>
+        <button class="gobtn" id="start-go">搜尋</button>
+      </div>
     </div>
     <div class="btns">
-      <button class="btn" id="start-gps">📍 我的位置</button>
       <button class="btn" id="start-pin">在地圖上點選</button>
     </div>
     <ul class="results" id="start-results"></ul>
@@ -579,16 +632,21 @@
 
   <!-- DESTINATION: same three options. -->
   <div class="field">
-    <div class="flabel end">■ 目的地</div>
-    <div class="favs" id="end-favs"></div>
+    <div class="flabelrow">
+      <div class="flabel end">■ 目的地</div>
+      <div class="favs" id="end-favs"></div>
+    </div>
     <div class="chosen empty" id="end-chosen">未設定</div>
     <button class="addfav" id="end-save" style="display:none">⭐ 加入常用地點</button>
     <div class="frow">
+      <!-- No "my location" here: you are already at your location, so it can
+           only ever be a starting point. The column keeps Search the same
+           size and position as the one above. -->
       <input id="end-text" type="text" placeholder="輸入大廈或地點名稱…" autocomplete="off">
-      <button class="gobtn" id="end-go">搜尋</button>
+      <div class="fcol">
+        <button class="gobtn" id="end-go">搜尋</button>
+      </div>
     </div>
-    <!-- No "my location" here: you are already at your location, so it can
-         only ever be a starting point. -->
     <div class="btns">
       <button class="btn" id="end-pin">在地圖上點選</button>
     </div>
@@ -1651,12 +1709,34 @@ document.addEventListener('click', event => {
     .replace('{r}', star.dataset.route);
 });
 
-const MAX_FAVS = 8;
+// Five slots in the row beside each label, and five is also the limit, so
+// what can be saved and what can be seen are the same number. Saving a sixth
+// that only ever appeared on the FAVOURITES screen would be a place quietly
+// missing from the row it was saved for.
+const FAV_SLOTS = 5;
+const MAX_FAVS = FAV_SLOTS;
 let favourites = [];
+
+// The lowest colour nobody is using. Favourites are added to the FRONT of the
+// list, so colouring by position would repaint every chip each time one was
+// saved — the green one you reach for would be blue tomorrow. The colour is
+// pinned to the place instead, and freed again when it is deleted.
+function freeFavColour() {
+  const taken = new Set(favourites.map(f => f.c));
+  for (let c = 1; c <= FAV_SLOTS; c++) if (!taken.has(c)) return c;
+  return 1;
+}
 
 function loadFavourites() {
   try { favourites = JSON.parse(localStorage.getItem('hkfast-favs') || '[]'); }
   catch (e) { favourites = []; }
+  // Favourites saved before colours existed get one now, by position, so an
+  // existing install does not open to a row of identical chips.
+  let changed = false;
+  favourites.forEach((fav, i) => {
+    if (!fav.c) { fav.c = (i % FAV_SLOTS) + 1; changed = true; }
+  });
+  if (changed) { try { localStorage.setItem('hkfast-favs', JSON.stringify(favourites)); } catch (e) {} }
   renderFavourites();
 }
 
@@ -1670,7 +1750,7 @@ function saveFavourites() {
 
 function addFavourite(point) {
   if (!point) return;
-  const entry = { label: point.label, lat: point.lat, lng: point.lng };
+  const entry = { label: point.label, lat: point.lat, lng: point.lng, c: freeFavColour() };
 
   // Already saved? Do nothing rather than pile up duplicates.
   if (favourites.some(f => f.label === entry.label)) {
@@ -1695,12 +1775,29 @@ function renderFavourites() {
     if (!row) continue;
     row.innerHTML = '';
 
-    if (favourites.length === 0) {
-      row.innerHTML = '<div class="favempty">' + T('noFavs') + '</div>';
-      continue;
+    // Always at least five places in the row, so the row never changes height
+    // and the empty slots say plainly how many more can be saved. An older
+    // install holding more than five still shows every one of them: dropping
+    // a saved place from the row without saying so would be worse than a
+    // slightly tighter fit.
+    const slots = Math.max(FAV_SLOTS, favourites.length);
+    // Colours still unclaimed, so the empty slots show what is left rather
+    // than repeating a colour already in use.
+    const spare = [];
+    for (let c = 1; c <= FAV_SLOTS; c++) {
+      if (!favourites.some(f => f.c === c)) spare.push(c);
     }
 
-    favourites.forEach((fav, index) => {
+    for (let index = 0; index < slots; index++) {
+      const fav = favourites[index];
+
+      if (!fav) {
+        const blank = document.createElement('span');
+        blank.className = 'favslot c' + (spare.shift() || 1);
+        row.appendChild(blank);
+        continue;
+      }
+      const colour = ' c' + (fav.c || 1);
       // Two initials fit in a small square. The full name is on hover and
       // read out to screen readers, so nothing is lost.
       // Chinese has no spaces, so "first letter of each word" gives one
@@ -1711,7 +1808,7 @@ function renderFavourites() {
         : clean.split(/\s+/).map(word => word[0]).join('').slice(0, 2).toUpperCase();
 
       const chip = document.createElement('button');
-      chip.className = 'favchip';
+      chip.className = 'favchip' + colour;
       chip.title = fav.label;
       chip.setAttribute('aria-label', 'Use favourite: ' + fav.label);
       chip.innerHTML = initials + '<span class="x">✕</span>';
@@ -1724,7 +1821,7 @@ function renderFavourites() {
       });
 
       row.appendChild(chip);
-    });
+    }
   }
 }
 
@@ -1747,8 +1844,15 @@ function applyLanguage() {
     document.getElementById(which + '-text').placeholder = T('typePlace');
     document.getElementById(which + '-go').textContent = T('find');
     // Only START has a "my location" button now, so this one may not exist.
+    // It is the pin alone — the words would not fit the narrow column, so
+    // they move to the tooltip and the screen-reader label instead.
     const gps = document.getElementById(which + '-gps');
-    if (gps) gps.textContent = T('myLocation');
+    if (gps) {
+      const words = T('myLocation').replace(/^📍\s*/, '');
+      gps.textContent = '📍';
+      gps.title = words;
+      gps.setAttribute('aria-label', words);
+    }
     document.getElementById(which + '-pin').textContent = T('tapMap');
   }
 
