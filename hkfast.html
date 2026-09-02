@@ -87,10 +87,15 @@
      colour — every time the screen is opened.
      They share the leftover width rather than wrapping: a second row here
      would cost exactly the line this layout was meant to save. */
-  .favs { display:flex; gap:5px; flex:1; min-width:0; }
+  /* Five fit; a sixth to eighth is reached by swiping the row sideways.
+     Shrinking eight chips to fit instead would put each one under 30px. */
+  .favs { display:flex; gap:5px; flex:1; min-width:0;
+          overflow-x:auto; overflow-y:visible; padding:7px 7px 0 0;
+          margin:-7px -7px 0 0; scrollbar-width:none; }
+  .favs::-webkit-scrollbar { display:none; }
   .favchip, .favslot {
-    flex:1 1 0; min-width:0; height:46px; border-radius:10px;
-    padding:0; box-sizing:border-box;
+    flex:0 0 calc((100% - 20px) / 5); min-width:44px; height:46px;
+    border-radius:10px; padding:0; box-sizing:border-box;
   }
   .favchip { position:relative; border:2px solid #15803d; background:#f0fdf4; color:#15803d;
              font-size:1.0588rem; font-weight:800; cursor:pointer;
@@ -105,6 +110,9 @@
   .favchip.c3 { border-color:#7e22ce; background:#faf5ff; color:#7e22ce; }
   .favchip.c4 { border-color:#c2410c; background:#fff7ed; color:#c2410c; }
   .favchip.c5 { border-color:#0f766e; background:#f0fdfa; color:#0f766e; }
+  .favchip.c6 { border-color:#be185d; background:#fdf2f8; color:#be185d; }
+  .favchip.c7 { border-color:#4d7c0f; background:#f7fee7; color:#4d7c0f; }
+  .favchip.c8 { border-color:#b45309; background:#fffbeb; color:#b45309; }
 
   /* An empty slot is deliberately NOT a button: a target that cannot do
      anything reads as a broken app. It is a dashed outline holding the
@@ -279,17 +287,28 @@
   .livemin { font-size:1.1765rem; font-weight:800; color:#15803d; white-space:nowrap; }
 
   /* TRIP PICKER: two columns, one shared list. */
-  #favview .tripgrid { display:flex; gap:8px; margin-bottom:12px; }
-  #favview .tripcol { flex:1; min-width:0; }
-  #favview .tripcolhead { font-size:0.8235rem; font-weight:800; margin-bottom:6px;
-                          text-align:center; }
-  #favview .tripitem { display:block; width:100%; min-height:52px; margin-bottom:6px;
-                       border:2px solid #d1d5db; border-radius:8px; background:white;
-                       font-size:0.9412rem; font-weight:700; color:#111; cursor:pointer;
-                       padding:8px 6px; line-height:1.2; word-break:break-word; }
-  #favview .tripitem.here { border-style:dashed; color:#1d4ed8; }
+  /* One list per section, full width, so a long stop name is read in one
+     line instead of being wrapped into a narrow column. */
+  #favview .triplist { margin-bottom:18px; }
+  /* Choose and delete are two separate targets side by side, so one is never
+     mistaken for the other. */
+  #favview .triprow { display:flex; gap:6px; margin-bottom:6px; }
+  #favview .tripitem { flex:1; min-width:0; min-height:56px;
+                       border:2px solid #d1d5db; border-left:8px solid #d1d5db;
+                       border-radius:8px; background:white;
+                       font-size:1rem; font-weight:700; color:#111; cursor:pointer;
+                       padding:8px 12px; line-height:1.3; text-align:left;
+                       word-break:break-word; box-sizing:border-box; }
+  /* No colour stripe on "my location": it is not a saved place, and an 8px
+     dashed edge renders as a column of blocks. */
+  #favview .tripitem.here { width:100%; border:2px dashed #d1d5db;
+                            color:#1d4ed8; text-align:center; margin-bottom:6px; }
   #favview .tripitem.on { background:#1e3a8a; border-color:#1e3a8a; color:white; }
   #favview .tripitem:disabled { opacity:.5; }
+  #favview .tripdel { flex:0 0 52px; min-height:56px; border-radius:8px;
+                      border:2px solid #e5e7eb; background:white; color:#6b7280;
+                      font-size:1rem; font-weight:800; cursor:pointer; padding:0; }
+  #favview .tripdel:hover { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
   #favview .favmanage { width:100%; min-height:48px; margin-bottom:10px;
                         border:2px solid #d1d5db; border-radius:8px; background:white;
                         font-size:0.9412rem; font-weight:700; color:#4b5563; cursor:pointer; }
@@ -728,6 +747,9 @@ const TEXT = {
     goFromHere:'\u27a4 Go here from my location', goShort:'\u27a4 Go',
     favTrip:'PLAN A TRIP', favPlaces:'PLACES', favRoutes:'MY BUSES',
     fromCol:'FROM', toCol:'TO', manageFavs:'Edit saved places',
+    favFrom:'START FROM', favTo:'TRAVEL TO',
+    noFavStart:'No starting points saved yet. Set a start, then tap ⭐ Save.',
+    noFavEnd:'No destinations saved yet. Set a destination, then tap ⭐ Save.',
     noFavsShort:'Nothing saved yet.', locationFailed:'Could not find your location.',
     saveDeparture:'Save this bus', departureSaved:'Saved {r} to favourites.',
     departureRemoved:'Removed {r} from favourites.',
@@ -827,6 +849,9 @@ const TEXT = {
     goFromHere:'\u27a4 由我的位置前往', goShort:'\u27a4 前往',
     favTrip:'規劃行程', favPlaces:'常用地點', favRoutes:'我的巴士',
     fromCol:'由', toCol:'往', manageFavs:'編輯常用地點',
+    favFrom:'常用起點', favTo:'常用目的地',
+    noFavStart:'尚未收藏起點。設定起點後，按「⭐ 加入常用地點」。',
+    noFavEnd:'尚未收藏目的地。設定目的地後，按「⭐ 加入常用地點」。',
     noFavsShort:'尚未收藏。', locationFailed:'無法取得你的位置。',
     saveDeparture:'收藏此路線', departureSaved:'已收藏 {r}。',
     departureRemoved:'已移除 {r}。',
@@ -1574,7 +1599,7 @@ function showChosen(elementId, point) {
   // The moment a point is set, offer to save it. Waiting until after a
   // journey search made people type the same place over and over.
   if (saveButton) {
-    const alreadySaved = favourites.some(f => f.label === point.label);
+    const alreadySaved = favList(which).some(f => f.label === point.label);
     saveButton.style.display = 'block';
     saveButton.textContent = alreadySaved
       ? T('alreadyFav')
@@ -1607,12 +1632,14 @@ function drawPoint(point, colour, letter, text) {
 
 
 // ============================================================
-// FAVOURITES (up to 5)
+// FAVOURITES (up to 8 departures and 8 arrivals)
 // ============================================================
 // Saved in the browser so they survive closing the tab. If storage is
 // blocked or full, the app still works — favourites just do not persist.
-// The form shows favourites as small chips, so five was all that fit there.
-// The favourites screen lists them full-width, so it can hold more.
+// Departures and arrivals are two separate lists. A place you both leave
+// from and travel to has to be saved on both sides, which costs a slot in
+// each — the trade for never scrolling past somewhere you would only ever
+// go TO while choosing where to start.
 // The two result sets live side by side. currentPicks always points at
 // whichever section is open, so every existing card, map and fare function
 // keeps working without knowing the bottom bar exists.
@@ -1709,64 +1736,117 @@ document.addEventListener('click', event => {
     .replace('{r}', star.dataset.route);
 });
 
-// Five slots in the row beside each label, and five is also the limit, so
-// what can be saved and what can be seen are the same number. Saving a sixth
-// that only ever appeared on the FAVOURITES screen would be a place quietly
-// missing from the row it was saved for.
-const FAV_SLOTS = 5;
-const MAX_FAVS = FAV_SLOTS;
-let favourites = [];
+// Eight per list. The chip row beside each label shows five at a time and
+// scrolls to the rest, so everything saved is still reachable from the form —
+// a saved place that only existed on the FAVOURITES screen would be missing
+// from the row it was saved for.
+const MAX_FAVS = 8;
+const FAV_SLOTS = 5;        // empty placeholders drawn in the chip row
+const FAV_COLOURS = 8;      // one per possible entry in a list
 
-// The lowest colour nobody is using. Favourites are added to the FRONT of the
-// list, so colouring by position would repaint every chip each time one was
+// The same eight colours the CSS uses for .c1–.c8, so a chip in the form and
+// its row on the favourites screen are recognisably the same place.
+const FAV_COLOUR_HEX = ['#15803d', '#1d4ed8', '#7e22ce', '#c2410c',
+                        '#0f766e', '#be185d', '#4d7c0f', '#b45309'];
+
+let favStart = [];          // places you leave FROM
+let favEnd   = [];          // places you travel TO
+
+// Every favourite lookup goes through here, so 'start' and 'end' never get
+// mixed up by a stray array reference.
+function favList(which) { return which === 'end' ? favEnd : favStart; }
+
+// The lowest colour nobody in THIS list is using. Favourites are added to the
+// front, so colouring by position would repaint every chip each time one was
 // saved — the green one you reach for would be blue tomorrow. The colour is
 // pinned to the place instead, and freed again when it is deleted.
-function freeFavColour() {
-  const taken = new Set(favourites.map(f => f.c));
-  for (let c = 1; c <= FAV_SLOTS; c++) if (!taken.has(c)) return c;
+function freeFavColour(which) {
+  const taken = new Set(favList(which).map(f => f.c));
+  for (let c = 1; c <= FAV_COLOURS; c++) if (!taken.has(c)) return c;
   return 1;
 }
 
+const FAV_KEY = { start: 'hkfast-favs-start', end: 'hkfast-favs-end' };
+
 function loadFavourites() {
-  try { favourites = JSON.parse(localStorage.getItem('hkfast-favs') || '[]'); }
-  catch (e) { favourites = []; }
-  // Favourites saved before colours existed get one now, by position, so an
+  const read = key => {
+    try { return JSON.parse(localStorage.getItem(key) || '[]'); }
+    catch (e) { return []; }
+  };
+
+  favStart = read(FAV_KEY.start);
+  favEnd   = read(FAV_KEY.end);
+
+  // ONE-TIME MIGRATION. Before this there was a single list usable at either
+  // end, so the only faithful split is to put every saved place in both —
+  // dropping a favourite from one side because we could not tell which end it
+  // was meant for would be losing something the user saved.
+  const old = read('hkfast-favs');
+  if (old.length && !favStart.length && !favEnd.length) {
+    favStart = old.slice(0, MAX_FAVS).map(f => ({ ...f }));
+    favEnd   = old.slice(0, MAX_FAVS).map(f => ({ ...f }));
+  }
+
+  // Anything saved before colours existed gets one now, per list, so an
   // existing install does not open to a row of identical chips.
-  let changed = false;
-  favourites.forEach((fav, i) => {
-    if (!fav.c) { fav.c = (i % FAV_SLOTS) + 1; changed = true; }
-  });
-  if (changed) { try { localStorage.setItem('hkfast-favs', JSON.stringify(favourites)); } catch (e) {} }
+  for (const which of ['start', 'end']) {
+    favList(which).forEach((fav, i) => {
+      if (!fav.c) fav.c = (i % FAV_COLOURS) + 1;
+    });
+    saveFavourites(which, true);
+  }
   renderFavourites();
 }
 
-function saveFavourites() {
-  try { localStorage.setItem('hkfast-favs', JSON.stringify(favourites)); }
-  catch (e) { console.warn('Could not save favourites:', e); }
+// quiet:true writes without redrawing — used during start-up, before the
+// elements the redraw touches necessarily exist.
+function saveFavourites(which, quiet) {
+  for (const side of (which ? [which] : ['start', 'end'])) {
+    try { localStorage.setItem(FAV_KEY[side], JSON.stringify(favList(side))); }
+    catch (e) { console.warn('Could not save favourites:', e); }
+  }
+  if (quiet) return;
   renderFavourites();
-  // The bottom bar carries a count, so it has to hear about this too.
+  // The ⭐ button reads "already saved" and disables itself. Deleting a place
+  // from the favourites screen has to reach that button too, or the place it
+  // describes can never be saved again.
+  if (typeof startPoint !== 'undefined') showChosen('start-chosen', startPoint);
+  if (typeof endPoint   !== 'undefined') showChosen('end-chosen',   endPoint);
+  // The top bar carries a count, so it has to hear about this too.
   if (typeof paintBottomBar === 'function') paintBottomBar();
 }
 
-function addFavourite(point) {
+function addFavourite(which, point) {
   if (!point) return;
-  const entry = { label: point.label, lat: point.lat, lng: point.lng, c: freeFavColour() };
+  const list = favList(which);
 
-  // Already saved? Do nothing rather than pile up duplicates.
-  if (favourites.some(f => f.label === entry.label)) {
-    status.textContent = T('alreadyFavMsg').replace('{name}', entry.label);
+  // Already saved on this side? Do nothing rather than pile up duplicates.
+  // The same place on the other side is a different entry and is fine.
+  if (list.some(f => f.label === point.label)) {
+    status.textContent = T('alreadyFavMsg').replace('{name}', point.label);
     return;
   }
 
-  favourites.unshift(entry);                    // newest first
-  if (favourites.length > MAX_FAVS) favourites.pop();   // oldest drops off
-  saveFavourites();
-  status.textContent = T('savedFav').replace('{name}', entry.label);
+  list.unshift({ label: point.label, lat: point.lat, lng: point.lng,
+                 c: freeFavColour(which) });
+  if (list.length > MAX_FAVS) list.pop();       // oldest drops off
+  saveFavourites(which);
+  status.textContent = T('savedFav').replace('{name}', point.label);
 }
 
-function removeFavourite(index) {
-  favourites.splice(index, 1);
-  saveFavourites();
+function removeFavourite(which, index) {
+  favList(which).splice(index, 1);
+  saveFavourites(which);
+}
+
+// Both lists as one, deduplicated by name — for the places that do not care
+// which end a favourite was saved for.
+function allFavourites() {
+  const out = [];
+  for (const fav of favStart.concat(favEnd)) {
+    if (!out.some(f => f.label === fav.label)) out.push(fav);
+  }
+  return out;
 }
 
 function renderFavourites() {
@@ -1775,21 +1855,24 @@ function renderFavourites() {
     if (!row) continue;
     row.innerHTML = '';
 
+    // This end's own list: the chips beside 起點 are places you leave from,
+    // the ones beside 目的地 are places you travel to.
+    const list = favList(which);
+
     // Always at least five places in the row, so the row never changes height
-    // and the empty slots say plainly how many more can be saved. An older
-    // install holding more than five still shows every one of them: dropping
-    // a saved place from the row without saying so would be worse than a
-    // slightly tighter fit.
-    const slots = Math.max(FAV_SLOTS, favourites.length);
+    // and the empty slots say plainly that more can be saved. Beyond five the
+    // row scrolls sideways rather than shrinking the chips — all eight stay
+    // reachable, and none drops below a size worth aiming at.
+    const slots = Math.max(FAV_SLOTS, list.length);
     // Colours still unclaimed, so the empty slots show what is left rather
     // than repeating a colour already in use.
     const spare = [];
-    for (let c = 1; c <= FAV_SLOTS; c++) {
-      if (!favourites.some(f => f.c === c)) spare.push(c);
+    for (let c = 1; c <= FAV_COLOURS; c++) {
+      if (!list.some(f => f.c === c)) spare.push(c);
     }
 
     for (let index = 0; index < slots; index++) {
-      const fav = favourites[index];
+      const fav = list[index];
 
       if (!fav) {
         const blank = document.createElement('span');
@@ -1815,7 +1898,7 @@ function renderFavourites() {
 
       chip.addEventListener('click', event => {
         // Tapping the ✕ removes it; tapping anywhere else uses it.
-        if (event.target.classList.contains('x')) { removeFavourite(index); return; }
+        if (event.target.classList.contains('x')) { removeFavourite(which, index); return; }
         setPoint(which, fav.lat, fav.lng, fav.label);
         map.setView([fav.lat, fav.lng], 16);
       });
@@ -1893,12 +1976,12 @@ document.getElementById('setview').addEventListener('click', event => {
 try { lang = localStorage.getItem('hkfast-lang') || 'zh'; } catch (e) {}
 
 document.getElementById('start-save').addEventListener('click', () => {
-  addFavourite(startPoint);
+  addFavourite('start', startPoint);
   showChosen('start-chosen', startPoint);       // refresh the button label
 });
 
 document.getElementById('end-save').addEventListener('click', () => {
-  addFavourite(endPoint);
+  addFavourite('end', endPoint);
   showChosen('end-chosen', endPoint);
 });
 
@@ -3249,7 +3332,7 @@ async function findBuses() {
       button.className = 'addfav';
       button.textContent = T(which === 'start' ? 'saveStart' : 'saveEnd')
                              .replace('{name}', point.label);
-      button.addEventListener('click', () => addFavourite(point));
+      button.addEventListener('click', () => addFavourite(which, point));
       addRow.appendChild(button);
     }
     box.appendChild(addRow);
@@ -3607,7 +3690,8 @@ function paintBottomBar() {
   // beside it would read as a section not worth opening.
   const labels = { bus: T('tabBus') + ' (' + busPicks.length + ')',
                    mtr: T('tabMtr') + ' (' + railPicks.length + ')',
-                   fav: T('tabFav') + ' (' + (favourites.length + departures.length) + ')',
+                   fav: T('tabFav') + ' (' +
+                        (favStart.length + favEnd.length + departures.length) + ')',
                    set: T('tabSet') };
 
   for (const button of bar.querySelectorAll('.bnav')) {
@@ -3887,7 +3971,7 @@ function whichLinesServe(code) {
 function savedStations() {
   if (!mtrData) return [];
   const out = [];
-  for (const fav of favourites) {
+  for (const fav of allFavourites()) {
     let best = null, bestMetres = Infinity;
     for (const [code, s] of Object.entries(mtrData.stations)) {
       const m = metresBetween(fav.lat, fav.lng, s[2], s[3]);
@@ -4179,28 +4263,28 @@ function renderFavouriteList() {
   };
 
   // ---- THE TRIP PICKER ----
-  // Two columns, 由 on the left and 往 on the right, so choosing a departure
-  // point and an arrival point are two separate one-tap decisions — which is
-  // how people think about a journey.
+  // Departures on top, arrivals underneath, each a full-width list of up to
+  // eight. Side-by-side columns had to fit two names across a phone, so long
+  // stop names were cut in half; down the page each one gets the whole width.
   //
-  // Both columns are drawn from ONE saved list rather than two. Home is your
-  // departure every morning and your arrival every evening; keeping separate
-  // lists would mean saving it twice and spending two slots on one place.
-  heading('⭐', T('favTrip'), favourites.length + '/' + MAX_FAVS);
+  // Once both ends are known there is nothing left to ask, so search.
+  // Two taps from opening this screen to seeing the answer.
+  function afterPick() {
+    renderFavouriteList();
+    if (startPoint && endPoint) {
+      leaveFavourites();
+      setResultsMode(false);
+      findBuses();
+    }
+  }
 
-  const grid = document.createElement('div');
-  grid.className = 'tripgrid';
-  view.appendChild(grid);
+  const section = (which, icon, title, colour) => {
+    const list = favList(which);
+    heading(icon, title, list.length + '/' + MAX_FAVS);
 
-  const column = (which, label, colour) => {
-    const col = document.createElement('div');
-    col.className = 'tripcol';
-
-    const head = document.createElement('div');
-    head.className = 'tripcolhead';
-    head.style.color = colour;
-    head.textContent = label;
-    col.appendChild(head);
+    const box = document.createElement('div');
+    box.className = 'triplist';
+    view.appendChild(box);
 
     // "My location" only makes sense as a starting point.
     if (which === 'start') {
@@ -4220,12 +4304,18 @@ function renderFavouriteList() {
           error => { here.disabled = false; status.textContent = T('locationFailed'); },
           { enableHighAccuracy:true, timeout:10000 });
       });
-      col.appendChild(here);
+      box.appendChild(here);
     }
 
-    favourites.forEach(fav => {
+    list.forEach((fav, index) => {
+      // A row, not one button inside another: nesting them would fire both
+      // handlers on one tap, so deleting would also pick the place.
+      const row = document.createElement('div');
+      row.className = 'triprow';
+
       const item = document.createElement('button');
       item.className = 'tripitem';
+      item.style.borderLeftColor = FAV_COLOUR_HEX[(fav.c || 1) - 1];
       const chosen = (which === 'start' ? startPoint : endPoint);
       if (chosen && chosen.label === fav.label) item.classList.add('on');
       item.textContent = fav.label;
@@ -4234,65 +4324,34 @@ function renderFavouriteList() {
         setPoint(which, fav.lat, fav.lng, fav.label);
         afterPick();
       });
-      col.appendChild(item);
-    });
 
-    if (favourites.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'favempty';
-      empty.textContent = T('noFavsShort');
-      col.appendChild(empty);
-    }
-    return col;
-  };
-
-  // Once both ends are known there is nothing left to ask, so search.
-  // Two taps from opening this screen to seeing the answer.
-  function afterPick() {
-    renderFavouriteList();
-    if (startPoint && endPoint) {
-      leaveFavourites();
-      setResultsMode(false);
-      findBuses();
-    }
-  }
-
-  grid.appendChild(column('start', T('fromCol'), '#15803d'));
-  grid.appendChild(column('end',   T('toCol'),   '#b91c1c'));
-
-  // Managing the list is a rarer job than using it, so it sits behind a
-  // button rather than putting a ✕ on all eight entries.
-  if (favourites.length > 0) {
-    const manage = document.createElement('button');
-    manage.className = 'favmanage';
-    manage.textContent = T('manageFavs');
-    const list = document.createElement('div');
-    list.style.display = 'none';
-    favourites.forEach((fav, index) => {
-      const row = document.createElement('div');
-      row.className = 'favrow';
-      const top = document.createElement('div');
-      top.className = 'favtop';
-      const name = document.createElement('div');
-      name.className = 'favname';
-      name.textContent = fav.label;
+      // Deleting sits on the row itself. With two lists, a place removed from
+      // one must stay in the other, and a single shared "manage" button could
+      // not say which side it was about.
       const del = document.createElement('button');
-      del.className = 'go-del';
+      del.className = 'tripdel';
       del.textContent = '✕';
       del.setAttribute('aria-label', 'Remove ' + fav.label);
-      del.addEventListener('click', () => { removeFavourite(index); renderFavouriteList(); });
-      top.appendChild(name); top.appendChild(del);
-      row.appendChild(top);
-      list.appendChild(row);
+      del.addEventListener('click', () => {
+        removeFavourite(which, index);
+        renderFavouriteList();
+      });
+
+      row.appendChild(item);
+      row.appendChild(del);
+      box.appendChild(row);
     });
-    manage.addEventListener('click', () => {
-      const open = list.style.display !== 'none';
-      list.style.display = open ? 'none' : 'block';
-      manage.classList.toggle('on', !open);
-    });
-    view.appendChild(manage);
-    view.appendChild(list);
-  }
+
+    if (list.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'favempty';
+      empty.textContent = T(which === 'start' ? 'noFavStart' : 'noFavEnd');
+      box.appendChild(empty);
+    }
+  };
+
+  section('start', '🟢', T('favFrom'), '#15803d');
+  section('end',   '🔴', T('favTo'),   '#b91c1c');
 
   // ---- SAVED DEPARTURES: no tap at all ----
   heading('🚌', T('favRoutes'), departures.length + '/' + MAX_DEPARTURES);
