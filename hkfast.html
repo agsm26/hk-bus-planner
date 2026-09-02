@@ -29,13 +29,6 @@
     max-width:calc(100vw - 20px); max-height:calc(100vh - 20px); overflow-y:auto;
     background:white; border-radius:10px; box-shadow:0 2px 12px rgba(0,0,0,.35); padding:14px;
   }
-  #appname { background:#b91c1c; color:white; padding:10px 14px; border-radius:8px;
-             font-size:1.1765rem; font-weight:700; margin-bottom:12px;
-             display:flex; align-items:center; justify-content:space-between; gap:10px; }
-  #langbtn { background:white; color:#b91c1c; border:none; border-radius:6px;
-             padding:8px 14px; font-size:0.9412rem; font-weight:800; cursor:pointer;
-             min-height:40px; flex:0 0 auto; }
-
   .field { margin-bottom:16px; }
   .flabel { font-size:0.9412rem; font-weight:800; letter-spacing:.5px; margin-bottom:6px; }
   .flabel.start { color:#15803d; }
@@ -127,23 +120,34 @@
   .cotag.gmb { background:#f3e8ff; color:#7c3aed; }
   .cotag.mtr { background:#fee2e2; color:#b91c1c; }
 
-  /* BOTTOM BAR — bus, train, favourites.
-     It sits below the sheet rather than inside it, so it never scrolls away
-     and the thumb always knows where to find it. Three targets, each well
-     over the 48px minimum, with the count in the label so a section that
-     would open empty says so before it is tapped. */
+  /* TOP BAR — bus, train, favourites, settings.
+     It sits above the sheet rather than inside it, so it never scrolls away
+     and always sits in the same place. Four targets, each well over the 48px
+     minimum, with the count in the label so a section that would open empty
+     says so before it is tapped.
+     Every panel height below is measured against --navh, so the bar and the
+     sheet can never overlap however tall the bar ends up. */
+  /* 60px button + the bar's own 2px bottom border. Miss the border and every
+     panel below starts 2px too high, tucked under the bar. */
+  :root { --navh:calc(62px + env(safe-area-inset-top, 0px)); }
   #bottombar {
-    position:fixed; bottom:0; left:0; right:0; z-index:1400;
-    display:flex; background:white; border-top:2px solid #e5e7eb;
-    box-shadow:0 -2px 12px rgba(0,0,0,.18);
-    padding-bottom:env(safe-area-inset-bottom, 0px);
+    position:fixed; top:0; left:0; right:0; z-index:1400;
+    display:flex; background:white; border-bottom:2px solid #e5e7eb;
+    box-shadow:0 2px 12px rgba(0,0,0,.18);
+    padding-top:env(safe-area-inset-top, 0px);
   }
-  .bnav { flex:1; min-height:60px; border:none; background:none; cursor:pointer;
+  /* border-box keeps the button exactly 60px including its underline, which
+     is what --navh above assumes. Without it the 4px border is added on top
+     and every panel sits 4px too low. */
+  .bnav { flex:1; height:60px; box-sizing:border-box; border:none; background:none;
+          cursor:pointer;
           display:flex; flex-direction:column; align-items:center; justify-content:center;
           gap:2px; padding:8px 2px; color:#6b7280; font-weight:800;
-          font-size:0.8235rem; border-top:4px solid transparent; }
+          font-size:0.8235rem; border-bottom:4px solid transparent; }
   .bnav .bicon { font-size:1.2941rem; line-height:1; }
-  .bnav.on { color:#1e3a8a; border-top-color:#1e3a8a; background:#eff6ff; }
+  /* The active marker moves to the underside now that the bar is on top, so
+     it still points at the panel it belongs to. */
+  .bnav.on { color:#1e3a8a; border-bottom-color:#1e3a8a; background:#eff6ff; }
   .bnav:disabled { opacity:.4; cursor:default; }
 
   /* FAVOURITES LIST. Full names, not the two-character chips used in the
@@ -283,10 +287,21 @@
      name would break the moment either grew a new element, so instead
      everything except the grip and the list itself steps aside. */
   #panel.favmode > *:not(#favview):not(#sheetgrip) { display:none !important; }
-  #panel.favmode { top:0; max-height:100vh; max-height:100dvh; border-radius:0;
-                   padding-top:calc(16px + env(safe-area-inset-top, 0px)); }
-  #favview .favhead { font-size:1.1765rem; font-weight:800; color:#111;
+  #panel.setmode > *:not(#setview):not(#sheetgrip) { display:none !important; }
+  #panel.favmode, #panel.setmode { top:var(--navh); max-height:calc(100vh - var(--navh));
+                  max-height:calc(100dvh - var(--navh)); border-radius:0;
+                   padding-top:16px; }
+  #favview .favhead, #setview .favhead { font-size:1.1765rem; font-weight:800; color:#111;
                       margin:4px 0 14px; }
+
+  /* SETTINGS. One row per setting: what it is on the left, the control on
+     the right, each control a full 48px tap target. */
+  #setview .setrow { display:flex; align-items:center; gap:12px;
+                     border:2px solid #e5e7eb; border-radius:10px;
+                     padding:12px 14px; margin-bottom:10px; }
+  #setview .setlabel { flex:1; min-width:0; font-size:1rem; font-weight:700; color:#111; }
+  #setview .setnote { color:#6b7280; padding:4px 4px 18px; line-height:1.5;
+                      font-size:0.8824rem; }
   .legfare { font-size:1.0588rem; font-weight:800; color:#0f766e; margin-left:12px;
              background:#f0fdfa; padding:3px 10px; border-radius:6px;
              vertical-align:middle; }
@@ -306,12 +321,6 @@
      A → B summary instead, so the whole panel is results. */
   #panel.results .field,
   #panel.results #findbuses { display:none; }
-
-  /* The red title bar has done its job by the time results are on screen:
-     the user knows what app they are in, and those 50-odd pixels are better
-     spent on the three options. The language button comes back the moment
-     they tap "change trip". */
-  #panel.results #appname { display:none; }
 
   /* The trip (A → B) lives in the bottom banner, not the panel, so the
      three options can sit right at the top of the panel where the eye lands. */
@@ -451,28 +460,35 @@
      screen. Older browsers ignore the dvh line and keep the vh one above it. */
   #panel { max-height:55dvh; }
   #panel.peek { max-height:150px; overflow:hidden; }
-  #panel.tall { max-height:88vh; max-height:88dvh; }
+  /* Every tall state is capped at the space below the bar, so the top of the
+     sheet can never slide underneath it. */
+  #panel.tall { max-height:min(88vh, calc(100vh - var(--navh)));
+                max-height:min(88dvh, calc(100dvh - var(--navh))); }
 
   /* RESULTS: the whole screen, same as the entry form.
      Comparing three journeys means reading three cards, and a 55vh sheet
      showed barely one and a half of them. The map is behind the sheet at
      this moment anyway, so the options take the screen. The sheet still
      hangs from the bottom, so pulling the grip down brings the map back. */
-  #panel.results { max-height:100vh; max-height:100dvh; }
+  #panel.results { max-height:calc(100vh - var(--navh));
+                   max-height:calc(100dvh - var(--navh)); }
   #panel.results.peek { max-height:150px; }
-  #panel.results.tall { max-height:88vh; max-height:88dvh; }
+  #panel.results.tall { max-height:min(88vh, calc(100vh - var(--navh)));
+                        max-height:min(88dvh, calc(100dvh - var(--navh))); }
 
   /* ENTERING A TRIP: full screen, no map.
      On a phone, hunting for a stop on a small map is fiddly and slow.
      Typing a name is far easier, so the form gets the whole screen and
      the map only appears once there is a journey worth looking at. */
   #panel:not(.results) {
-    top:0; max-height:100vh; max-height:100dvh; border-radius:0;
-    padding-top:calc(16px + env(safe-area-inset-top, 0px)); box-shadow:none;
+    top:var(--navh); max-height:calc(100vh - var(--navh));
+    max-height:calc(100dvh - var(--navh)); border-radius:0;
+    padding-top:16px; box-shadow:none;
   }
   #panel:not(.results) #sheetgrip { display:none; }
-  /* Leave room for the bar so the last button is never underneath it. */
-  #panel { padding-bottom:calc(84px + env(safe-area-inset-bottom, 0px)); }
+  /* The bar is overhead now, so the sheet only needs to clear the iPhone
+     home indicator at the bottom, not a 84px bar. */
+  #panel { padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px)); }
 
   /* "Tap on map" cannot work when the map is hidden, so it goes away
      until the map is back. Typing and GPS still cover both ends. */
@@ -493,8 +509,6 @@
   #sheetgrip:active { cursor:grabbing; }
   #sheetgrip:active::before { background:#475569; }
 
-  #appname { font-size:1.0588rem; padding:8px 12px; margin-bottom:10px; }
-
   #compare { gap:6px; }
   .ctile { padding:8px 4px; }
   .ctile .ctitle { font-size:0.6471rem; min-height:26px; }
@@ -502,7 +516,7 @@
   .ctile .cbus   { font-size:1.1176rem; }
   .ctile .cfare  { font-size:0.7647rem; }
 
-  #stopdetail { top:10px; right:10px; left:10px; width:auto; }
+  #stopdetail { top:calc(var(--navh) + 10px); right:10px; left:10px; width:auto; }
 
   #routebanner { padding:10px 12px; }
   #routebanner .rb-route { font-size:1.4118rem; }
@@ -510,8 +524,10 @@
   #rb-trip .tp { font-size:0.8824rem; }
   #rb-close { width:44px; height:44px; font-size:1.1765rem; top:8px; right:8px; }
 
-  /* The Lands Department logo must stay visible, so lift it clear. */
-  #landsdlogo { bottom:auto; top:10px; left:10px; }
+  /* The Lands Department logo must stay visible. The bar is overhead now, so
+     the bottom-left corner is clear again — and that is where the sheet's
+     rounded corner leaves map showing. */
+  #landsdlogo { top:auto; bottom:6px; left:8px; }
 
   #routebanner { position:absolute; bottom:0; left:0; right:0; z-index:1000;
                  background:#1e3a8a; color:white; padding:14px 18px; display:none;
@@ -538,10 +554,11 @@
   <div id="sheetgrip" title="Expand or collapse"></div>
   <div id="geoask" style="display:none"></div>
   <div id="livestrip"></div>
-  <div id="appname">
-    <span id="apptitle">香港快線</span>
-    <button id="langbtn">English</button>
-  </div>
+  <!-- The name and language button used to sit in a red bar here. The bar
+       spent a whole row of a phone screen saying something the user already
+       knows, so the name is now only in the title and the language switch
+       lives in SETTINGS. -->
+  <div id="setview" style="display:none"></div>
 
   <!-- START: three ways to set it, exactly like DESTINATION below. -->
   <div class="field">
@@ -619,6 +636,7 @@
   <button class="bnav on" data-nav="bus"><span class="bicon">🚌</span><span class="blabel"></span></button>
   <button class="bnav"    data-nav="mtr"><span class="bicon">🚇</span><span class="blabel"></span></button>
   <button class="bnav"    data-nav="fav"><span class="bicon">⭐</span><span class="blabel"></span></button>
+  <button class="bnav"    data-nav="set"><span class="bicon">⚙️</span><span class="blabel"></span></button>
 </nav>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -646,7 +664,9 @@ const TEXT = {
     boardHere:'✓ Board right here at', walkTo:'🚶 Walk', minTo:'min to',
     rideTo:'Ride to', stops:'stops', stations:'stations', changeBus:'↓ CHANGE BUS',
     changeTrain:'↓ CHANGE TRAIN', trainsFrequent:'Trains every few minutes', here:'here',
-    tabBus:'BUS', tabMtr:'MTR', tabFav:'FAVOURITES',
+    tabBus:'BUS', tabMtr:'MTR', tabFav:'FAVOURITES', tabSet:'SETTINGS',
+    settings:'Settings', settingLanguage:'Language',
+    settingsNote:'Your choice is remembered on this phone.',
     goFromHere:'\u27a4 Go here from my location', goShort:'\u27a4 Go',
     favTrip:'PLAN A TRIP', favPlaces:'PLACES', favRoutes:'MY BUSES',
     fromCol:'FROM', toCol:'TO', manageFavs:'Edit saved places',
@@ -743,7 +763,9 @@ const TEXT = {
     boardHere:'✓ 就在此處上車：', walkTo:'🚶 步行', minTo:'分鐘至',
     rideTo:'乘搭至', stops:'個站', stations:'個站', changeBus:'↓ 轉乘巴士',
     changeTrain:'↓ 轉綫', trainsFrequent:'港鐵班次頻密，數分鐘一班', here:'於此處',
-    tabBus:'巴士', tabMtr:'港鐵', tabFav:'收藏',
+    tabBus:'巴士', tabMtr:'港鐵', tabFav:'收藏', tabSet:'設定',
+    settings:'設定', settingLanguage:'語言',
+    settingsNote:'你的選擇會記在這部手機。',
     goFromHere:'\u27a4 由我的位置前往', goShort:'\u27a4 前往',
     favTrip:'規劃行程', favPlaces:'常用地點', favRoutes:'我的巴士',
     fromCol:'由', toCol:'往', manageFavs:'編輯常用地點',
@@ -885,9 +907,18 @@ function isPhone() { return true; }
 function mapPadding() {
   const panel  = document.getElementById('panel');
   const banner = document.getElementById('routebanner');
+  const bar    = document.getElementById('bottombar');
 
-  const visible = el => el && el.offsetParent !== null;
+  // offsetParent is null for a position:fixed element even when it is on
+  // screen, so the nav bar would measure as hidden. Its rectangle does not
+  // lie, so ask that instead.
+  const visible = el => el && el.getBoundingClientRect().height > 0;
   const bannerH = visible(banner) ? banner.offsetHeight : 0;
+
+  // The nav bar covers the top of the map. Measured rather than assumed:
+  // it grows with the notch, and a route framed under it is a route the
+  // user cannot see.
+  const barH = visible(bar) ? bar.offsetHeight : 0;
 
   // The sheet covers the bottom of the map, so reserve that much space when
   // framing a route. Cap it at 55% — beyond that the sheet is covering the
@@ -895,7 +926,7 @@ function mapPadding() {
   const sheetH = visible(panel)
     ? Math.min(panel.offsetHeight, window.innerHeight * 0.55) : 0;
 
-  return { paddingTopLeft: [20, 20],
+  return { paddingTopLeft: [20, barH + 20],
            paddingBottomRight: [20, sheetH + bannerH + 20] };
 }
 
@@ -1704,8 +1735,10 @@ function applyLanguage() {
   if (typeof paintBottomBar === 'function') paintBottomBar();
   if (typeof activeMode !== 'undefined' && activeMode === 'fav'
       && typeof renderFavouriteList === 'function') renderFavouriteList();
-  document.getElementById('apptitle').textContent = T('appname');
-  document.getElementById('langbtn').textContent = T('langButton');
+  document.title = T('appname');
+  // The language button only exists while SETTINGS is open, so it is redrawn
+  // there rather than relied on here.
+  if (activeMode === 'set') renderSettings();
 
   document.querySelector('.flabel.start').innerHTML = '● ' + T('start');
   document.querySelector('.flabel.end').innerHTML = '■ ' + T('destination');
@@ -1735,7 +1768,11 @@ function applyLanguage() {
   showChosen('end-chosen', endPoint);
 }
 
-document.getElementById('langbtn').addEventListener('click', () => {
+// SETTINGS is redrawn every time it opens and every time the language
+// changes, so the button this listens for is a different element each time.
+// Listening on the container instead of the button survives that.
+document.getElementById('setview').addEventListener('click', event => {
+  if (!event.target.closest('#langbtn')) return;
   lang = lang === 'en' ? 'zh' : 'en';
   try { localStorage.setItem('hkfast-lang', lang); } catch (e) {}
   holidays = null;               // holiday names are language-specific
@@ -3219,19 +3256,19 @@ function sheetToResults() {
 
 
 // Switch the panel between "entering a trip" and "reading the results".
-// The blue route banner and the bottom bar both float over the sheet. Whatever
-// they cover is invisible, and the last line of a journey card was landing
-// underneath. Measure them and pad the sheet by exactly that much — measuring
+// The blue route banner floats over the bottom of the sheet. Whatever it
+// covers is invisible, and the last line of a journey card was landing
+// underneath. Measure it and pad the sheet by exactly that much — measuring
 // beats a guessed constant, because the banner's height changes with the
 // length of the stop names inside it.
+// The nav bar is NOT counted here: it sits above the sheet now, and the
+// sheet's own max-height already stops short of it.
 function reserveRoomForBanner() {
   const panel  = document.getElementById('panel');
   const banner = document.getElementById('routebanner');
-  const bar    = document.getElementById('bottombar');
   const shown  = el => el && el.offsetParent !== null;
 
-  const height = (shown(banner) ? banner.offsetHeight : 0) +
-                 (shown(bar)    ? bar.offsetHeight    : 0) + 24;
+  const height = (shown(banner) ? banner.offsetHeight : 0) + 24;
   panel.style.paddingBottom = height + 'px';
 }
 
@@ -3462,9 +3499,12 @@ function buildRailPicks(options) {
 // appears with the results and hides again on the entry form.
 function paintBottomBar() {
   const bar = document.getElementById('bottombar');
+  // Settings carries no count: there is nothing to have none of, and "(0)"
+  // beside it would read as a section not worth opening.
   const labels = { bus: T('tabBus') + ' (' + busPicks.length + ')',
                    mtr: T('tabMtr') + ' (' + railPicks.length + ')',
-                   fav: T('tabFav') + ' (' + (favourites.length + departures.length) + ')' };
+                   fav: T('tabFav') + ' (' + (favourites.length + departures.length) + ')',
+                   set: T('tabSet') };
 
   for (const button of bar.querySelectorAll('.bnav')) {
     const name = button.dataset.nav;
@@ -3479,8 +3519,15 @@ function paintBottomBar() {
 function showMode(mode) {
   const panel   = document.getElementById('panel');
   const favView = document.getElementById('favview');
+  const setView = document.getElementById('setview');
   const compare = document.getElementById('compare');
   const box     = document.getElementById('journeys');
+
+  // Whichever section is being opened, it starts at its own first line.
+  // Landing halfway down a list you have just asked to see reads as a
+  // broken screen, and on a phone the scroll needed to fix it is the whole
+  // reason the section felt hard to use.
+  panel.scrollTop = 0;
 
   // ---- FAVOURITES ----
   // Reachable from anywhere, including before a search has been run, so it
@@ -3489,6 +3536,8 @@ function showMode(mode) {
   if (mode === 'fav') {
     activeMode = 'fav';
     document.getElementById('livestrip').innerHTML = '';
+    panel.classList.remove('setmode');
+    setView.style.display = 'none';
     panel.classList.add('favmode');
     favView.style.display = 'block';
     renderFavouriteList();
@@ -3496,8 +3545,23 @@ function showMode(mode) {
     return;
   }
 
-  panel.classList.remove('favmode');
+  // ---- SETTINGS ----
+  // Same rules as favourites: reachable at any time, takes the whole panel.
+  if (mode === 'set') {
+    activeMode = 'set';
+    document.getElementById('livestrip').innerHTML = '';
+    panel.classList.remove('favmode');
+    favView.style.display = 'none';
+    panel.classList.add('setmode');
+    setView.style.display = 'block';
+    renderSettings();
+    paintBottomBar();
+    return;
+  }
+
+  panel.classList.remove('favmode', 'setmode');
   favView.style.display = 'none';
+  setView.style.display = 'none';
   compare.style.display = '';
   box.style.display = '';
   activeMode = mode;
@@ -3523,6 +3587,21 @@ function showMode(mode) {
   // scroll position in place once they arrive.
   document.getElementById('panel').scrollTop = 0;
   currentPicks.forEach(pick => loadNextBus(pick));
+}
+
+// The settings screen. Redrawn on open and after a language change, so it
+// is built from T() every time rather than patched in place.
+function renderSettings() {
+  const view = document.getElementById('setview');
+  if (!view) return;
+  view.innerHTML =
+    '<div class="favhead">⚙️ ' + T('settings') + '</div>' +
+    '<div class="setrow">' +
+      '<span class="setlabel">' + T('settingLanguage') + '</span>' +
+      '<button class="gobtn" id="langbtn" style="min-width:110px">' +
+        T('langButton') + '</button>' +
+    '</div>' +
+    '<div class="setnote">' + T('settingsNote') + '</div>';
 }
 
 // The favourites screen. The chips in the form show two characters because
