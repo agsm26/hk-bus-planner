@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>HK-Fast Route App</title>
+<title>香港快線</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   /* PHONE-ONLY, ELDERLY-FIRST DESIGN.
@@ -539,46 +539,46 @@
   <div id="geoask" style="display:none"></div>
   <div id="livestrip"></div>
   <div id="appname">
-    <span id="apptitle">HK-Fast Route App</span>
-    <button id="langbtn">中文</button>
+    <span id="apptitle">香港快線</span>
+    <button id="langbtn">English</button>
   </div>
 
   <!-- START: three ways to set it, exactly like DESTINATION below. -->
   <div class="field">
-    <div class="flabel start">● START</div>
+    <div class="flabel start">● 起點</div>
     <div class="favs" id="start-favs"></div>
-    <div class="chosen empty" id="start-chosen">Not set</div>
-    <button class="addfav" id="start-save" style="display:none">⭐ Save to favourites</button>
+    <div class="chosen empty" id="start-chosen">未設定</div>
+    <button class="addfav" id="start-save" style="display:none">⭐ 加入常用地點</button>
     <div class="frow">
-      <input id="start-text" type="text" placeholder="Type a building or place…" autocomplete="off">
-      <button class="gobtn" id="start-go">Find</button>
+      <input id="start-text" type="text" placeholder="輸入大廈或地點名稱…" autocomplete="off">
+      <button class="gobtn" id="start-go">搜尋</button>
     </div>
     <div class="btns">
-      <button class="btn" id="start-gps">📍 My location</button>
-      <button class="btn" id="start-pin">Tap on map</button>
+      <button class="btn" id="start-gps">📍 我的位置</button>
+      <button class="btn" id="start-pin">在地圖上點選</button>
     </div>
     <ul class="results" id="start-results"></ul>
   </div>
 
   <!-- DESTINATION: same three options. -->
   <div class="field">
-    <div class="flabel end">■ DESTINATION</div>
+    <div class="flabel end">■ 目的地</div>
     <div class="favs" id="end-favs"></div>
-    <div class="chosen empty" id="end-chosen">Not set</div>
-    <button class="addfav" id="end-save" style="display:none">⭐ Save to favourites</button>
+    <div class="chosen empty" id="end-chosen">未設定</div>
+    <button class="addfav" id="end-save" style="display:none">⭐ 加入常用地點</button>
     <div class="frow">
-      <input id="end-text" type="text" placeholder="Type a building or place…" autocomplete="off">
-      <button class="gobtn" id="end-go">Find</button>
+      <input id="end-text" type="text" placeholder="輸入大廈或地點名稱…" autocomplete="off">
+      <button class="gobtn" id="end-go">搜尋</button>
     </div>
     <!-- No "my location" here: you are already at your location, so it can
          only ever be a starting point. -->
     <div class="btns">
-      <button class="btn" id="end-pin">Tap on map</button>
+      <button class="btn" id="end-pin">在地圖上點選</button>
     </div>
     <ul class="results" id="end-results"></ul>
   </div>
 
-  <button id="findbuses" disabled>Set both points first</button>
+  <button id="findbuses" disabled>請先設定起點及目的地</button>
   <label id="shownotrunning"><input type="checkbox" id="notrunning-box"> <span id="notrunning-label"></span></label>
   <div id="favview" style="display:none"></div>
   <div id="compare"></div>
@@ -587,16 +587,16 @@
 
   <!-- Route lookup, in the same left panel for consistency. -->
   <div class="field">
-    <div class="flabel">🚌 LOOK UP A BUS ROUTE</div>
+    <div class="flabel">🚌 查詢巴士路線</div>
     <div class="frow">
-      <input id="route-text" type="text" placeholder="Route number, e.g. 60M" autocomplete="off">
+      <input id="route-text" type="text" placeholder="路線號碼，例如 60M" autocomplete="off">
     </div>
     <ul class="results" id="route-results"></ul>
   </div>
 
-  <button class="btn" id="clear-all" style="width:100%">Clear everything</button>
+  <button class="btn" id="clear-all" style="width:100%">全部清除</button>
 
-  <div id="status">Loading bus data…</div>
+  <div id="status">正在載入巴士資料…</div>
 </div>
 
 <div id="stopdetail"></div>
@@ -656,7 +656,6 @@ const TEXT = {
     noDepsLong:'No buses saved. Tap a stop on the map, then tap \u2606 next to a route to keep it here with live times.',
     noneDue:'None due right now', etaOffline:'Times unavailable',
     myBusesNow:'YOUR SAVED BUSES', myStationsNow:'YOUR SAVED STATIONS', towards:'towards',
-    howToSaveBus:'Tap a bus stop on the map, then tap ☆ beside a route. It will appear here with live times.',
     geoTitle:'Show buses near you?', geoYes:'Yes, use my location', geoNo:'Not now',
     geoBody:'If you allow it, this app can show the bus stops around you and when the next buses arrive. Your location stays on this phone.',
     foundYou:'Found you. Showing buses nearby.', nearbyBuses:'BUSES NEAR YOU',
@@ -664,7 +663,6 @@ const TEXT = {
     walkThere:'walk', addRoute:'Add a bus by number', routePlaceholderShort:'Route number, e.g. 60X',
     pickDirection:'Pick the direction you travel:', noRouteFound:'No route with that number.',
     nearestStopToYou:'Nearest stop to you', needLocation:'Allow location to see times',
-    howToSaveStation:'Save an MTR station as a favourite place. Its next trains, both directions, will appear here.',
     setEndOnly:'Destination set \u2014 now choose a start.',
     noGeo:'This browser cannot do location.',
     useAsStart:'Set as start', useAsEnd:'Set as destination',
@@ -755,7 +753,6 @@ const TEXT = {
     noDepsLong:'尚未收藏巴士。在地圖上點選車站，再按路線旁的 \u2606，即可在此看到實時班次。',
     noneDue:'暫時沒有班次', etaOffline:'無法取得班次',
     myBusesNow:'你收藏的巴士', myStationsNow:'你收藏的車站', towards:'往',
-    howToSaveBus:'在地圖上點選巴士站，按路線旁的 ☆，該路線便會在此顯示實時班次。',
     geoTitle:'顯示你附近的巴士？', geoYes:'好，使用我的位置', geoNo:'暫時不用',
     geoBody:'允許後，本app會顯示你附近的巴士站及下班車到站時間。你的位置只留在這部手機。',
     foundYou:'已找到你的位置，正顯示附近巴士。', nearbyBuses:'你附近的巴士',
@@ -763,7 +760,6 @@ const TEXT = {
     walkThere:'步行', addRoute:'用路線號碼加入巴士', routePlaceholderShort:'路線號碼，例如 60X',
     pickDirection:'選擇你乘搭的方向：', noRouteFound:'找不到此路線號碼。',
     nearestStopToYou:'距你最近的車站', needLocation:'允許定位後顯示班次',
-    howToSaveStation:'把港鐵站收藏為常用地點，這裡便會顯示該站兩邊方向的下班列車。',
     setEndOnly:'已設定目的地，請再設定起點。',
     noGeo:'此瀏覽器無法定位。',
     useAsStart:'設為起點', useAsEnd:'設為目的地',
@@ -830,7 +826,7 @@ const TEXT = {
   }
 };
 
-let lang = 'en';
+let lang = 'zh';
 function T(key) { return (TEXT[lang] && TEXT[lang][key]) || TEXT.en[key] || key; }
 
 // KMB bakes its own pole code into the stop name — "FESTIVAL WALK (SS920)".
@@ -1753,7 +1749,7 @@ document.getElementById('langbtn').addEventListener('click', () => {
   status.textContent = T('ready');
 });
 
-try { lang = localStorage.getItem('hkfast-lang') || 'en'; } catch (e) {}
+try { lang = localStorage.getItem('hkfast-lang') || 'zh'; } catch (e) {}
 
 document.getElementById('start-save').addEventListener('click', () => {
   addFavourite(startPoint);
@@ -3751,7 +3747,6 @@ function renderLiveStrip(mode) {
       // the saving hint moves out of the way to the bottom.
       strip.innerHTML = '';
       renderNearbyBuses(strip);
-      appendHTML(strip, '<div class="livehint">' + T('howToSaveBus') + '</div>');
       return;
     }
     strip.innerHTML = '<div class="livehead">🚌 ' + T('myBusesNow') + '</div>' +
@@ -3767,11 +3762,7 @@ function renderLiveStrip(mode) {
   }
 
   const stations = savedStations();
-  if (stations.length === 0) {
-    strip.innerHTML = '<div class="livehead">🚇 ' + T('myStationsNow') + '</div>' +
-      '<div class="livehint">' + T('howToSaveStation') + '</div>';
-    return;
-  }
+  if (stations.length === 0) return;
 
   let html = '<div class="livehead">🚇 ' + T('myStationsNow') + '</div>';
   const jobs = [];
