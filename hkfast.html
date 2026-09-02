@@ -5625,9 +5625,13 @@ function renderWeatherBar() {
     // Rainstorm black/red and typhoon 8+ are the ones that stop buses.
     const severe = /^(WRAINB|WRAINR|TC8|TC9|TC10)/.test(code) || /BLACK|RED/i.test(code);
     const amber  = /^(WRAINA|TC3)/.test(code) || /AMBER/i.test(code);
+    // `type` carries the specific signal — "一號戒備信號", "紅色暴雨警告信號" —
+    // while `name` is only the family it belongs to. Signal 1 and Signal 8
+    // are both "熱帶氣旋警告信號"; only one of them stops the buses, so the
+    // specific one is what goes on the bar.
     const tag = document.createElement('span');
     tag.className = 'wxwarn' + (severe ? '' : amber ? ' amber' : ' notice');
-    tag.textContent = '⚠ ' + warning.name;
+    tag.textContent = '⚠ ' + (warning.type || warning.name);
     parts.push(tag);
   }
 
