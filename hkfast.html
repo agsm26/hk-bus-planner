@@ -271,6 +271,49 @@
              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .aritick { font-size:1.1765rem; font-weight:800; color:#d97706; flex:0 0 auto; }
 
+  /* ==========================================================
+     THE STOP LIST — every stop on the chosen route, in order.
+     The map shows WHERE the stops are; this shows HOW MANY, which is the
+     question people actually ask on a bus. Each row is numbered, so
+     counting to your stop is reading a number rather than tallying dots.
+     ========================================================== */
+  #routestops:empty { display:none; }
+  #routestops { margin-bottom:14px; }
+  .rshead { display:flex; align-items:center; gap:10px; margin:4px 0 10px; }
+  .rstitle { flex:1; min-width:0; font-size:1.0588rem; font-weight:800; color:#111; }
+  .rstitle small { display:block; font-size:0.8235rem; font-weight:700; color:#6b7280;
+                   margin-top:2px; }
+  .rsclose { flex:0 0 44px; height:44px; border-radius:8px; border:2px solid #e5e7eb;
+             background:white; color:#6b7280; font-size:1rem; font-weight:800; cursor:pointer; }
+
+  .rshint { font-size:0.8235rem; color:#6b7280; line-height:1.45; margin-bottom:10px; }
+
+  .rsrow { display:flex; align-items:center; gap:8px; padding:8px 6px;
+           border-bottom:2px solid #f3f4f6; }
+  .rsrow:last-child { border-bottom:none; }
+  /* The number is the point of the list, so it is the one thing that never
+     shrinks and never wraps. */
+  .rsnum { flex:0 0 34px; height:34px; border-radius:17px; background:#eff6ff;
+           color:#1e3a8a; font-size:0.8824rem; font-weight:800;
+           display:flex; align-items:center; justify-content:center; }
+  .rspick { flex:1; min-width:0; text-align:left; background:none; border:none;
+            padding:6px 2px; min-height:44px; cursor:pointer; font:inherit; }
+  .rsname { font-size:0.9412rem; font-weight:700; color:#111; line-height:1.3;
+            word-break:break-word; }
+  .rseta { font-size:0.8235rem; font-weight:800; color:#15803d; margin-top:2px; }
+  .rseta.quiet { font-weight:600; color:#9ca3af; }
+  .rsstar { flex:0 0 44px; height:44px; border-radius:8px; border:2px solid #e5e7eb;
+            background:white; color:#9ca3af; font-size:1.1765rem; cursor:pointer; padding:0; }
+  .rsstar.on { border-color:#d97706; background:#fffbeb; color:#d97706; }
+
+  /* BOARDING MARK. Tapping a stop marks it; every stop after it then says how
+     many stops away it is, which is the actual question — "how many more?" */
+  .rsrow.board { background:#f0fdf4; border-radius:8px; }
+  .rsrow.board .rsnum { background:#15803d; color:white; }
+  .rsrow.after .rsnum { background:#dbeafe; }
+  .rscount { font-size:0.8235rem; font-weight:800; color:#1d4ed8; margin-top:2px; }
+  .rsboardtag { font-size:0.8235rem; font-weight:800; color:#15803d; margin-top:2px; }
+
   .livehint { border:2px dashed #d1d5db; border-radius:10px; padding:12px;
               font-size:0.9412rem; line-height:1.5; color:#6b7280; }
   .livecard { border:2px solid #e5e7eb; border-left:6px solid #15803d; border-radius:10px;
@@ -688,6 +731,9 @@
     <ul class="results" id="route-results"></ul>
   </div>
 
+  <!-- Every stop on the chosen route, in order. Filled by renderRouteStops(). -->
+  <div id="routestops"></div>
+
   <button class="btn" id="clear-all" style="width:100%">全部清除</button>
 
   <div id="status">正在載入巴士資料…</div>
@@ -797,6 +843,11 @@ const TEXT = {
     someDataFailed:'Some bus data could not load:',
     loadingNetwork:'Loading the bus network… first time only, then it is saved', lookingFor:'Looking for buses…',
     stopsOnRoute:'{n} stops on this route', cleared:'Cleared.',
+    rsHint:'Tap a stop to mark where you get on — the stops after it are then counted for you. Tap ☆ to keep a stop and see its live times in FAVOURITES.',
+    rsBoarding:'● GETTING ON HERE', rsStopsAway:'{n} stops from your stop',
+    rsOneStopAway:'1 stop from your stop', rsBefore:'before your stop',
+    rsCheckingEta:'checking…', rsNoEta:'no times listed',
+    rsEtaFailed:'times unavailable', rsClose:'Close the stop list',
     findingYou:'Finding you…', tapMapNow:'Now tap anywhere on the map to set your',
     mergedStops:'{n} stop codes here',
     fromStart:'from your start', fromDest:'from your destination',
@@ -899,6 +950,11 @@ const TEXT = {
     someDataFailed:'部分巴士資料未能載入：',
     loadingNetwork:'正在載入巴士路線網絡…只需一次，之後會自動儲存', lookingFor:'正在搜尋巴士…',
     stopsOnRoute:'此路線共 {n} 個站', cleared:'已清除。',
+    rsHint:'按車站設定上車位置，之後的車站便會自動計算距離。按 ☆ 收藏車站，可在「收藏」查看實時班次。',
+    rsBoarding:'● 在此上車', rsStopsAway:'距離上車站 {n} 個站',
+    rsOneStopAway:'距離上車站 1 個站', rsBefore:'在上車站之前',
+    rsCheckingEta:'查詢中…', rsNoEta:'沒有班次資料',
+    rsEtaFailed:'無法取得班次', rsClose:'關閉車站列表',
     findingYou:'正在定位…', tapMapNow:'請在地圖上點選以設定',
     mergedStops:'此處有 {n} 個站牌',
     fromStart:'距離起點', fromDest:'距離目的地',
@@ -1647,7 +1703,13 @@ function drawPoint(point, colour, letter, text) {
 // These sit up here, not beside the bar code, because paintBottomBar() runs
 // during start-up to label the bar — and a `let` cannot be read before the
 // line that declares it has executed.
+//
+// routeStopsState is here for the same reason: applyLanguage() rebuilds the
+// stop list and also runs during start-up. `typeof` is no escape either — on
+// a `let` that has not been reached yet it throws rather than returning
+// "undefined", so the guard has to be the declaration itself.
 let currentPicks = [];
+let routeStopsState = null;   // the open stop list, or null
 let busPicks = [], railPicks = [], railOptions = [], activeMode = 'bus';
 
 // Rail state lives up here for the same reason as the picks above: loadMtr()
@@ -1919,6 +1981,14 @@ function applyLanguage() {
   // The language button only exists while SETTINGS is open, so it is redrawn
   // there rather than relied on here.
   if (activeMode === 'set') renderSettings();
+  // The stop list holds stop names and counts in the old language, and it is
+  // rebuilt rather than patched — every string in it comes from T().
+  if (routeStopsState) {
+    const keep = { context: routeStopsState.context, stops: routeStopsState.stops,
+                   boardAt: routeStopsState.boardAt };
+    renderRouteStops(keep.context, keep.stops);
+    if (routeStopsState) { routeStopsState.boardAt = keep.boardAt; paintStopCounts(); }
+  }
 
   document.querySelector('.flabel.start').innerHTML = '● ' + T('start');
   document.querySelector('.flabel.end').innerHTML = '■ ' + T('destination');
@@ -5168,7 +5238,12 @@ async function showKmbRoute(route) {
     paintRoute(route.route, 'KMB',
                lang === 'zh' ? (route.orig_tc || route.orig_en) : route.orig_en,
                lang === 'zh' ? (route.dest_tc || route.dest_en) : route.dest_en,
-               stops, '#3b82f6', '#1e3a8a', null);
+               stops, '#3b82f6', '#1e3a8a', null,
+               // The ETA feed reports direction as O/I, so the stop list is
+               // given the same letter the route carries rather than the
+               // "outbound"/"inbound" word used in the route-stop URL.
+               { co:'KMB', dir:route.bound, serviceType:route.service_type,
+                 destEn:route.dest_en, destTc:route.dest_tc });
   } catch (error) {
     status.textContent = 'Could not load route: ' + error.message;
   }
@@ -5197,7 +5272,9 @@ async function showCtbRoute(route, dir, from, to) {
       const found = await Promise.all(ids.slice(i, i+5).map(getCtbStop));
       stops.push(...found.filter(Boolean));
     }
-    paintRoute(route.route, 'Citybus', from, to, stops, '#fb923c', '#9a3412', route.route);
+    paintRoute(route.route, 'Citybus', from, to, stops, '#fb923c', '#9a3412', route.route,
+               { co:'CTB', dir: dir === 'outbound' ? 'O' : 'I', serviceType:null,
+                 destEn:to, destTc:to });
   } catch (error) {
     status.textContent = 'Could not load Citybus route: ' + error.message;
   }
@@ -5221,7 +5298,253 @@ async function getCtbStop(stopId) {
   } catch (error) { return null; }
 }
 
-function paintRoute(routeNo, company, from, to, stops, fill, edge, ctbRouteNo) {
+// ============================================================
+// THE STOP LIST
+// ============================================================
+// The map answers "where"; a rider on the bus is asking "how many more?".
+// This is that answer: every stop in order, numbered, with the live times
+// and a star on each one.
+//
+// Times are fetched as rows come into view, never all at once. A long route
+// is fifty stops, and fifty simultaneous requests to a government API is
+// both slow for the user and rude to the service.
+function clearRouteStops() {
+  if (routeStopsState && routeStopsState.observer) routeStopsState.observer.disconnect();
+  routeStopsState = null;
+  const box = document.getElementById('routestops');
+  if (box) box.innerHTML = '';
+}
+
+function renderRouteStops(context, stops) {
+  clearRouteStops();
+  const box = document.getElementById('routestops');
+  if (!box || !stops.length) return;
+
+  routeStopsState = { context, stops, boardAt: null, observer: null, inFlight: 0, queue: [] };
+
+  const head = document.createElement('div');
+  head.className = 'rshead';
+  const title = document.createElement('div');
+  title.className = 'rstitle';
+  title.textContent = context.routeNo + '  ' + context.from + ' → ' + context.to;
+  const sub = document.createElement('small');
+  sub.textContent = T('stopsOnRoute').replace('{n}', stops.length);
+  title.appendChild(sub);
+  const close = document.createElement('button');
+  close.className = 'rsclose';
+  close.textContent = '✕';
+  close.title = T('rsClose');
+  close.setAttribute('aria-label', T('rsClose'));
+  close.addEventListener('click', clearRouteStops);
+  head.appendChild(title); head.appendChild(close);
+  box.appendChild(head);
+
+  const hint = document.createElement('div');
+  hint.className = 'rshint';
+  hint.textContent = T('rsHint');
+  box.appendChild(hint);
+
+  stops.forEach((stop, index) => {
+    const row = document.createElement('div');
+    row.className = 'rsrow';
+    row.dataset.index = index;
+
+    const num = document.createElement('div');
+    num.className = 'rsnum';
+    num.textContent = index + 1;
+
+    const pick = document.createElement('button');
+    pick.className = 'rspick';
+    const name = document.createElement('div');
+    name.className = 'rsname';
+    name.textContent = plainStopName(lang === 'zh' ? (stop.name_tc || stop.name_en)
+                                                   : stop.name_en);
+    const note = document.createElement('div');       // count or boarding tag
+    const eta  = document.createElement('div');
+    eta.className = 'rseta quiet';
+    eta.textContent = T('rsCheckingEta');
+    pick.appendChild(name); pick.appendChild(note); pick.appendChild(eta);
+
+    // Tapping a stop marks where you get on, and puts it on the map. Tapping
+    // the marked one again clears the mark.
+    pick.addEventListener('click', () => {
+      routeStopsState.boardAt = (routeStopsState.boardAt === index) ? null : index;
+      paintStopCounts();
+      const lat = Number(stop.lat), lng = Number(stop.long);
+      if (isFinite(lat) && isFinite(lng)) map.setView([lat, lng], 17);
+    });
+
+    const star = document.createElement('button');
+    star.className = 'rsstar';
+    star.textContent = '☆';
+    star.setAttribute('aria-label', 'Save this stop');
+    star.addEventListener('click', () => {
+      const added = toggleDeparture({
+        route: context.routeNo, dir: context.dir, serviceType: context.serviceType,
+        co: context.co, stop: stop.stop,
+        stopName_en: stop.name_en, stopName_tc: stop.name_tc,
+        dest_en: context.destEn, dest_tc: context.destTc
+      });
+      star.textContent = added ? '★' : '☆';
+      star.classList.toggle('on', added);
+      status.textContent = (added ? T('departureSaved') : T('departureRemoved'))
+        .replace('{r}', context.routeNo);
+    });
+    if (isSavedDeparture(context.routeNo, context.dir, stop.stop)) {
+      star.textContent = '★';
+      star.classList.add('on');
+    }
+
+    row.appendChild(num); row.appendChild(pick); row.appendChild(star);
+    row.etaCell = eta;
+    row.noteCell = note;
+    box.appendChild(row);
+  });
+
+  paintStopCounts();
+  watchForVisibleRows();
+
+  // The list is built below the whole entry form, so without this it appears
+  // off the bottom of the sheet and looks as though nothing happened.
+  const panel = document.getElementById('panel');
+  if (panel) panel.scrollTop = Math.max(0, box.offsetTop - panel.offsetTop - 8);
+}
+
+// How far each stop is from the one the rider marked. Only stops AFTER the
+// mark get a count — a stop already behind you is not "3 away", it is gone.
+function paintStopCounts() {
+  if (!routeStopsState) return;
+  const box = document.getElementById('routestops');
+  const board = routeStopsState.boardAt;
+
+  for (const row of box.querySelectorAll('.rsrow')) {
+    const index = Number(row.dataset.index);
+    row.classList.toggle('board', board !== null && index === board);
+    row.classList.toggle('after', board !== null && index > board);
+
+    const note = row.noteCell;
+    note.className = '';
+    note.textContent = '';
+    if (board === null) continue;
+
+    if (index === board) {
+      note.className = 'rsboardtag';
+      note.textContent = T('rsBoarding');
+    } else if (index > board) {
+      const away = index - board;
+      note.className = 'rscount';
+      note.textContent = away === 1 ? T('rsOneStopAway')
+                                    : T('rsStopsAway').replace('{n}', away);
+    } else {
+      note.className = 'rseta quiet';
+      note.textContent = T('rsBefore');
+    }
+  }
+}
+
+// Fetch times only for the rows actually on screen, four at a time.
+function watchForVisibleRows() {
+  const box = document.getElementById('routestops');
+  if (!box || !routeStopsState) return;
+
+  const pump = () => {
+    while (routeStopsState && routeStopsState.inFlight < 4 && routeStopsState.queue.length) {
+      const row = routeStopsState.queue.shift();
+      routeStopsState.inFlight++;
+      loadStopEta(row).finally(() => {
+        if (!routeStopsState) return;
+        routeStopsState.inFlight--;
+        pump();
+      });
+    }
+  };
+
+  const rows = [...box.querySelectorAll('.rsrow')];
+
+  // No IntersectionObserver (older browser): just load them in order rather
+  // than showing "checking…" for ever.
+  if (typeof IntersectionObserver === 'undefined') {
+    routeStopsState.queue = rows;
+    pump();
+    return;
+  }
+
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      observer.unobserve(entry.target);        // each stop is asked for once
+      routeStopsState.queue.push(entry.target);
+    }
+    pump();
+  }, { root: document.getElementById('panel'), rootMargin: '200px' });
+
+  for (const row of rows) observer.observe(row);
+  routeStopsState.observer = observer;
+
+  // The observer is an optimisation, not the mechanism. It does not fire at
+  // all while the tab is in the background, and a rider who opens a route and
+  // switches away for ten seconds would come back to a list still saying
+  // "checking…". The first stops are wanted in every case, so they are asked
+  // for outright and the observer is left to cover the rest.
+  for (const row of rows.slice(0, 6)) {
+    observer.unobserve(row);
+    routeStopsState.queue.push(row);
+  }
+  pump();
+}
+
+async function loadStopEta(row) {
+  if (!routeStopsState) return;
+  const { context, stops } = routeStopsState;
+  const stop = stops[Number(row.dataset.index)];
+  const cell = row.etaCell;
+  if (!stop || !cell) return;
+
+  try {
+    let minutes = [];
+    if (context.co === 'CTB') {
+      const response = await fetch(CTB_BASE + '/eta/CTB/' + stop.stop + '/' +
+        encodeURIComponent(context.routeNo), { signal: AbortSignal.timeout(10000) });
+      if (!response.ok) throw new Error(response.status);
+      minutes = etaMinutes((await response.json()).data, context.dir, null);
+    } else {
+      const response = await fetch('https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/' +
+        stop.stop, { signal: AbortSignal.timeout(10000) });
+      if (!response.ok) throw new Error(response.status);
+      const rows = ((await response.json()).data || [])
+        .filter(r => String(r.route).toUpperCase() === String(context.routeNo).toUpperCase());
+      minutes = etaMinutes(rows, context.dir, context.serviceType);
+    }
+
+    if (!routeStopsState) return;                 // list closed while waiting
+    if (minutes.length === 0) {
+      cell.className = 'rseta quiet';
+      cell.textContent = T('rsNoEta');
+      return;
+    }
+    cell.className = 'rseta';
+    cell.textContent = minutes.slice(0, 3)
+      .map(m => (m <= 0 ? T('due') : m + T('min'))).join(' · ');
+  } catch (error) {
+    if (!routeStopsState) return;
+    cell.className = 'rseta quiet';
+    cell.textContent = T('rsEtaFailed');
+  }
+}
+
+// Minutes from now, for this direction only, soonest first.
+function etaMinutes(rows, dir, serviceType) {
+  const now = Date.now();
+  return (rows || [])
+    .filter(r => r.eta)
+    .filter(r => !dir || !r.dir || r.dir === dir)
+    .filter(r => !serviceType || String(r.service_type) === String(serviceType))
+    .map(r => Math.round((new Date(r.eta).getTime() - now) / 60000))
+    .filter(m => m >= 0)
+    .sort((a, b) => a - b);
+}
+
+function paintRoute(routeNo, company, from, to, stops, fill, edge, ctbRouteNo, context) {
   // Same rule as choosing a journey: once a route is on screen, the general
   // bus stop dots are clutter. They come back when the route is closed.
   journeyMode = true;
@@ -5256,6 +5579,9 @@ function paintRoute(routeNo, company, from, to, stops, fill, edge, ctbRouteNo) {
   banner.classList.toggle('ctb', company === 'Citybus');
   banner.style.display = 'block';
   status.textContent = T('stopsOnRoute').replace('{n}', points.length);
+
+  // The list in the panel, alongside the dots on the map.
+  if (context) renderRouteStops(Object.assign({ routeNo, from, to }, context), stops);
 }
 
 async function loadCtbArrivals(stop, marker, routeNo) {
@@ -5296,6 +5622,7 @@ document.getElementById('clear-all').addEventListener('click', () => {
   document.getElementById('routebanner').style.display = 'none';
   document.getElementById('journeys').innerHTML = '';
   document.getElementById('compare').innerHTML = '';
+  clearRouteStops();
   for (const id of ['start-text','end-text','route-text']) document.getElementById(id).value = '';
   for (const id of ['start-results','end-results','route-results']) document.getElementById(id).innerHTML = '';
   redrawJourney();
@@ -5318,6 +5645,7 @@ function resetTrip() {
 
   document.getElementById('journeys').innerHTML = '';
   document.getElementById('compare').innerHTML = '';
+  clearRouteStops();
   for (const id of ['start-text','end-text','route-text'])
     document.getElementById(id).value = '';
   for (const id of ['start-results','end-results','route-results'])
