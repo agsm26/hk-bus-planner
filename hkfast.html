@@ -4,8 +4,80 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>香港快線</title>
+
+<!-- INSTALLABLE APP (PWA).
+     The lines below are what let the app be added to a phone's home screen
+     and opened like any other app, with no browser bar around it.
+
+     manifest.json holds the name, the icon and the colours. sw.js (registered
+     at the very bottom of this file) is what makes it open without a
+     connection — read the top of that file for what is and is not stored.
+
+     The status bar style is "default", not "black-translucent": translucent
+     draws WHITE status-bar text, and the bar underneath it here is white.
+     iOS ignores the manifest icon and reads apple-touch-icon.png instead. -->
+<meta name="theme-color" content="#1e3a8a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="香港快線">
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
+  /* ==========================================================
+     DESIGN TOKENS. Every text colour here is at least 7:1 on white (WCAG
+     AAA), which is the level that matters for older eyes — the previous
+     secondary grey was 4.8:1 and the "quiet" grey 2.5:1, which is not
+     readable at all in sunlight. One green, one red, one blue, one navy.
+     ========================================================== */
+  :root {
+    --ink:#111827;        /* body text            15.9:1 */
+    --ink-2:#374151;      /* strong secondary     10.3:1 */
+    --ink-3:#4b5563;      /* secondary, captions   7.6:1 */
+    --navy:#1e3a8a;       /* primary action, active tab */
+    --navy-tint:#eff6ff;
+    --blue:#1e40af;       /* route numbers, links  8.8:1 */
+    --blue-tint:#dbeafe;
+    --green:#166534;      /* start, go, arriving   7.5:1 */
+    --green-tint:#f0fdf4;
+    --red:#991b1b;        /* destination, alerts   9.4:1 */
+    --red-tint:#fee2e2;
+    --amber:#92400e;      /* saved star, warnings  7.1:1 */
+    --amber-tint:#fffbeb;
+    --teal:#115e59;       /* fares                 7.4:1 */
+    --teal-tint:#f0fdfa;
+    --line:#d1d5db;       /* input and card edges */
+    --line-soft:#e5e7eb;  /* dividers */
+    --surface:#ffffff;
+    --surface-2:#f3f4f6;
+    --surface-3:#f9fafb;
+    --r-sm:8px;           /* tags, small chips */
+    --r-md:12px;          /* buttons, inputs, cards */
+    --r-lg:16px;          /* the sheet */
+  }
+  /* END TOKENS */
+
+  /* A tap must be SEEN to land. Older hands are less sure a press registered,
+     and a button that does nothing visible gets pressed again. */
+  button:not(:disabled):active,
+  .ctile:active, .jcard:active, ul.results li:active {
+    transform:scale(.97); filter:brightness(.94);
+  }
+  button, .ctile, .jcard, ul.results li {
+    transition:transform .08s ease, filter .08s ease, background-color .12s ease;
+  }
+  /* Keyboard and switch users get a ring they can actually see. */
+  :focus-visible { outline:3px solid var(--navy); outline-offset:2px; }
+  button:focus:not(:focus-visible) { outline:none; }
+  /* Some people are made unwell by motion. The bobbing arrow and the sheet
+     animation are decoration; they go, the app does not. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation:none !important; transition:none !important; }
+  }
+
   /* PHONE-ONLY, ELDERLY-FIRST DESIGN.
      Every text size in this file is in rem, so all of it keys off the one
      number below. clamp() reads the screen width and picks a size: about
@@ -13,8 +85,9 @@
      Max, and never more than 21px. So the app fits the phone it is on rather
      than being drawn for one imaginary handset.
      Tap targets stay in px — 48px is a floor, not something to scale down. */
-  html, body { margin:0; padding:0; height:100%; font-family:system-ui,sans-serif;
-               font-size:clamp(16px, 4.6vw, 21px);
+  html, body { margin:0; padding:0; height:100%; font-family:system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+               -webkit-font-smoothing:antialiased;
+               font-size:clamp(17px, 4.6vw, 21px);
                -webkit-text-size-adjust:100%;      /* iOS must not re-inflate it */
                -webkit-tap-highlight-color:rgba(0,0,0,.08); }
   #map { height:100%; width:100%; }
@@ -27,24 +100,24 @@
   #panel {
     position:absolute; top:10px; left:10px; z-index:1000; width:400px;
     max-width:calc(100vw - 20px); max-height:calc(100vh - 20px); overflow-y:auto;
-    background:white; border-radius:10px; box-shadow:0 2px 12px rgba(0,0,0,.35); padding:14px;
+    background:white; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,.35); padding:14px;
   }
   .field { margin-bottom:16px; }
-  .flabel { font-size:0.9412rem; font-weight:800; letter-spacing:.5px; margin-bottom:6px; }
-  .flabel.start { color:#15803d; }
-  .flabel.end   { color:#b91c1c; }
+  .flabel { font-size:1rem; font-weight:800; letter-spacing:.5px; margin-bottom:6px; }
+  .flabel.start { color:var(--green); }
+  .flabel.end   { color:var(--red); }
 
   .frow { display:flex; gap:6px; margin-bottom:8px; }
   .frow input {
     flex:1; min-width:0; box-sizing:border-box; padding:12px 14px;
-    border:2px solid #d1d5db; border-radius:8px; font-size:1.0588rem; min-height:50px;
+    border:2px solid var(--line); border-radius:10px; font-size:1.0588rem; min-height:50px;
   }
-  .gobtn { min-width:64px; min-height:50px; border:none; border-radius:8px;
-           background:#1e3a8a; color:white; font-size:0.9412rem; font-weight:700; cursor:pointer; }
+  .gobtn { min-width:64px; min-height:50px; border:none; border-radius:10px;
+           background:var(--navy); color:white; font-size:1rem; font-weight:700; cursor:pointer; }
 
   .btns { display:flex; gap:6px; }
-  .btn { flex:1; min-height:48px; border:2px solid #d1d5db; background:white;
-         border-radius:8px; font-size:0.8824rem; font-weight:700; cursor:pointer; padding:6px; }
+  .btn { flex:1; min-height:48px; border:2px solid var(--line); background:white;
+         border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer; padding:6px; }
 
   /* Icon only, and shorter than the 48px used everywhere else. It is the one
      control here that trades tap size for the row it used to occupy — the
@@ -52,30 +125,30 @@
      word "location" is gone from the face of it. */
   .gpsbtn { min-height:42px; height:42px; flex:0 0 auto; font-size:1.1765rem;
             padding:0; line-height:1; }
-  .btn:hover { background:#f3f4f6; }
-  .btn.armed { background:#1e3a8a; color:white; border-color:#1e3a8a; }
+  .btn:hover { background:var(--surface-2); }
+  .btn.armed { background:var(--navy); color:white; border-color:var(--navy); }
 
   .chosen { font-size:1rem; margin-bottom:8px; line-height:1.4; }
-  .chosen.empty { color:#6b7280; font-style:italic; }
-  .chosen small { color:#374151; }
+  .chosen.empty { color:var(--ink-3); font-style:italic; }
+  .chosen small { color:var(--ink-2); }
 
   ul.results { list-style:none; margin:6px 0 0; padding:0; background:white;
-               border:2px solid #e5e7eb; border-radius:8px; max-height:260px; overflow-y:auto; }
-  ul.results li { padding:14px; font-size:1rem; cursor:pointer; border-bottom:2px solid #f3f4f6; line-height:1.4; }
-  ul.results li:hover { background:#eff6ff; }
+               border:2px solid var(--line-soft); border-radius:10px; max-height:260px; overflow-y:auto; }
+  ul.results li { padding:14px; font-size:1rem; cursor:pointer; border-bottom:2px solid var(--surface-2); line-height:1.4; }
+  ul.results li:hover { background:var(--navy-tint); }
   ul.results:empty { display:none; }
 
-  .badge { display:inline-block; font-size:0.7059rem; font-weight:800; padding:3px 8px;
-           border-radius:5px; margin-right:8px; }
-  .badge-kmb { background:#dbeafe; color:#1d4ed8; }
-  .badge-ctb { background:#ffedd5; color:#c2410c; }
-  .badge-stop{ background:#fee2e2; color:#b91c1c; }
-  .badge-place{background:#dcfce7; color:#15803d; }
-  .routeno { font-weight:800; color:#1d4ed8; font-size:1.1765rem; margin-right:8px; }
+  .badge { display:inline-block; font-size:0.94rem; font-weight:800; padding:3px 8px;
+           border-radius:8px; margin-right:8px; }
+  .badge-kmb { background:var(--blue-tint); color:var(--blue); }
+  .badge-ctb { background:#ffedd5; color:#9a3412; }
+  .badge-stop{ background:var(--red-tint); color:var(--red); }
+  .badge-place{background:#dcfce7; color:var(--green); }
+  .routeno { font-weight:800; color:var(--blue); font-size:1.1765rem; margin-right:8px; }
 
-  #walkinfo { border-top:2px solid #e5e7eb; padding-top:12px; margin-bottom:16px; font-size:1rem; display:none; }
+  #walkinfo { border-top:2px solid var(--line-soft); padding-top:12px; margin-bottom:16px; font-size:1rem; display:none; }
   #walkinfo .big { font-size:1.3529rem; font-weight:800; color:#111; margin:4px 0; }
-  #walkinfo .warn { font-size:0.8235rem; color:#92400e; margin-top:8px; line-height:1.4; }
+  #walkinfo .warn { font-size:0.94rem; color:var(--amber); margin-top:8px; line-height:1.4; }
 
   /* The label keeps only the width its words need; the five favourite slots
      take the rest of the row. */
@@ -95,9 +168,9 @@
   .favs::-webkit-scrollbar { display:none; }
   .favchip, .favslot {
     flex:0 0 calc((100% - 20px) / 5); min-width:44px; height:46px;
-    border-radius:10px; padding:0; box-sizing:border-box;
+    border-radius:12px; padding:0; box-sizing:border-box;
   }
-  .favchip { position:relative; border:2px solid #15803d; background:#f0fdf4; color:#15803d;
+  .favchip { position:relative; border:2px solid var(--green); background:var(--green-tint); color:var(--green);
              font-size:1.0588rem; font-weight:800; cursor:pointer;
              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .favchip:hover { filter:brightness(.96); }
@@ -105,19 +178,19 @@
   /* One colour per position. A favourite is recognised by where it sits and
      what colour it is long before the two characters are read, which is the
      whole point of a chip this small. */
-  .favchip.c1 { border-color:#15803d; background:#f0fdf4; color:#15803d; }
-  .favchip.c2 { border-color:#1d4ed8; background:#eff6ff; color:#1d4ed8; }
-  .favchip.c3 { border-color:#7e22ce; background:#faf5ff; color:#7e22ce; }
-  .favchip.c4 { border-color:#c2410c; background:#fff7ed; color:#c2410c; }
-  .favchip.c5 { border-color:#0f766e; background:#f0fdfa; color:#0f766e; }
-  .favchip.c6 { border-color:#be185d; background:#fdf2f8; color:#be185d; }
-  .favchip.c7 { border-color:#4d7c0f; background:#f7fee7; color:#4d7c0f; }
-  .favchip.c8 { border-color:#b45309; background:#fffbeb; color:#b45309; }
+  .favchip.c1 { border-color:var(--green); background:var(--green-tint); color:var(--green); }
+  .favchip.c2 { border-color:var(--blue); background:var(--navy-tint); color:var(--blue); }
+  .favchip.c3 { border-color:#6b21a8; background:#faf5ff; color:#6b21a8; }
+  .favchip.c4 { border-color:#9a3412; background:#fff7ed; color:#9a3412; }
+  .favchip.c5 { border-color:var(--teal); background:var(--teal-tint); color:var(--teal); }
+  .favchip.c6 { border-color:#9d174d; background:#fdf2f8; color:#9d174d; }
+  .favchip.c7 { border-color:#3f6212; background:#f7fee7; color:#3f6212; }
+  .favchip.c8 { border-color:var(--amber); background:var(--amber-tint); color:var(--amber); }
 
   /* An empty slot is deliberately NOT a button: a target that cannot do
      anything reads as a broken app. It is a dashed outline holding the
      place, in that position's own colour, faintly. */
-  .favslot { border:2px dashed #d1d5db; background:transparent; }
+  .favslot { border:2px dashed var(--line); background:transparent; }
   .favslot.c1 { border-color:#bbf7d0; }
   .favslot.c2 { border-color:#bfdbfe; }
   .favslot.c3 { border-color:#e9d5ff; }
@@ -125,52 +198,52 @@
   .favslot.c5 { border-color:#99f6e4; }
 
   .favchip .x { position:absolute; top:-6px; right:-6px; width:20px; height:20px;
-                border-radius:10px; background:#991b1b; color:white; font-size:0.7059rem;
+                border-radius:12px; background:var(--red); color:white; font-size:13px;
                 font-weight:800; line-height:20px; }
-  .favempty { font-size:0.8235rem; color:#6b7280; font-style:italic; margin-bottom:8px; }
+  .favempty { font-size:0.94rem; color:var(--ink-3); font-style:italic; margin-bottom:8px; }
 
   /* Search, with My location stacked above it where there is one. */
   .fcol { display:flex; flex-direction:column; gap:6px; flex:0 0 auto; }
-  .addfav { border:2px solid #15803d; background:white; color:#15803d;
-            border-radius:8px; padding:10px; font-size:0.8824rem; font-weight:700;
+  .addfav { border:2px solid var(--green); background:white; color:var(--green);
+            border-radius:10px; padding:10px; font-size:1rem; font-weight:700;
             cursor:pointer; min-height:46px; width:100%; margin-top:8px; }
-  .addfav:hover { background:#f0fdf4; }
+  .addfav:hover { background:var(--green-tint); }
 
   /* COMPARISON STRIP
      Three tiles side by side, so the whole choice is visible without
      scrolling. The detailed cards stay below for whichever they pick. */
   #compare { display:flex; gap:8px; margin-bottom:14px; }
-  .ctile { flex:1; min-width:0; border:3px solid #d1d5db; border-radius:10px;
+  .ctile { flex:1; min-width:0; border:3px solid var(--line); border-radius:12px;
            padding:10px 8px; cursor:pointer; background:white; text-align:center; }
-  .ctile:hover { background:#f9fafb; }
-  .ctile.on { background:#eff6ff; }
+  .ctile:hover { background:var(--surface-3); }
+  .ctile.on { background:var(--navy-tint); }
   .ctile .cnum { width:26px; height:26px; border-radius:13px; color:white;
-                 font-size:0.8824rem; font-weight:800; line-height:26px; margin:0 auto 6px; }
-  .ctile .ctitle { font-size:0.8235rem; font-weight:800; line-height:1.3;
+                 font-size:1rem; font-weight:800; line-height:26px; margin:0 auto 6px; }
+  .ctile .ctitle { font-size:0.94rem; font-weight:800; line-height:1.3;
                    min-height:30px; margin-bottom:4px; }
   .ctile .ctime { font-size:1.4118rem; font-weight:800; color:#111; line-height:1.1; }
-  .ctile .cunit { font-size:0.8235rem; font-weight:700; color:#4b5563; }
+  .ctile .cunit { font-size:0.94rem; font-weight:700; color:var(--ink-3); }
   /* A route number cut to "98S \u2192 N..." tells you nothing. Let it wrap and
      shrink instead: two short lines beat one truncated one. */
-  .ctile .cbus  { font-size:1.2941rem; font-weight:800; color:#1d4ed8; margin-top:6px;
+  .ctile .cbus  { font-size:1.2941rem; font-weight:800; color:var(--blue); margin-top:6px;
                   line-height:1.15; overflow-wrap:anywhere; word-break:break-word; }
-  .ctile .cfare { font-size:0.9412rem; font-weight:800; color:#0f766e; margin-top:4px; }
-  .ctile .cwalk { font-size:0.8235rem; color:#b45309; font-weight:700; margin-top:4px; }
-  .ctile .ceta  { font-size:0.8235rem; font-weight:800; color:#15803d; margin-top:6px;
-                  background:#f0fdf4; border-radius:5px; padding:3px 2px; }
+  .ctile .cfare { font-size:1rem; font-weight:800; color:var(--teal); margin-top:4px; }
+  .ctile .cwalk { font-size:0.94rem; color:var(--amber); font-weight:700; margin-top:4px; }
+  .ctile .ceta  { font-size:0.94rem; font-weight:800; color:var(--green); margin-top:6px;
+                  background:var(--green-tint); border-radius:8px; padding:3px 2px; }
 
   #journeys { margin-bottom:16px; }
-  .jcard { border:2px solid #e5e7eb; border-radius:12px; padding:14px; margin-bottom:12px; cursor:pointer; }
-  .jcard:hover { background:#eff6ff; border-color:#1e3a8a; }
-  .jcard .jtop { font-size:0.8824rem; color:#6b7280; font-weight:700; }
-  .jcard .jbus { font-size:1.6471rem; font-weight:800; color:#1d4ed8; margin:4px 0; }
-  .cotag { font-size:0.7059rem; font-weight:800; padding:3px 8px; border-radius:5px;
+  .jcard { border:2px solid var(--line-soft); border-radius:12px; padding:14px; margin-bottom:12px; cursor:pointer; }
+  .jcard:hover { background:var(--navy-tint); border-color:var(--navy); }
+  .jcard .jtop { font-size:1rem; color:var(--ink-3); font-weight:700; }
+  .jcard .jbus { font-size:1.6471rem; font-weight:800; color:var(--blue); margin:4px 0; }
+  .cotag { font-size:0.94rem; font-weight:800; padding:3px 8px; border-radius:8px;
            margin-left:10px; vertical-align:middle; }
-  .cotag.kmb { background:#dbeafe; color:#1d4ed8; }
-  .cotag.ctb { background:#ffedd5; color:#c2410c; }
-  .cotag.nlb { background:#dcfce7; color:#15803d; }
-  .cotag.gmb { background:#f3e8ff; color:#7c3aed; }
-  .cotag.mtr { background:#fee2e2; color:#b91c1c; }
+  .cotag.kmb { background:var(--blue-tint); color:var(--blue); }
+  .cotag.ctb { background:#ffedd5; color:#9a3412; }
+  .cotag.nlb { background:#dcfce7; color:var(--green); }
+  .cotag.gmb { background:#f3e8ff; color:#6b21a8; }
+  .cotag.mtr { background:var(--red-tint); color:var(--red); }
 
   /* TOP BAR — bus, train, favourites, settings.
      It sits above the sheet rather than inside it, so it never scrolls away
@@ -190,7 +263,7 @@
           --toph:calc(var(--navh) + var(--wxh)); }
   #bottombar {
     position:fixed; top:0; left:0; right:0; z-index:1400;
-    display:flex; background:white; border-bottom:2px solid #e5e7eb;
+    display:flex; background:white; border-bottom:2px solid var(--line-soft);
     box-shadow:0 2px 12px rgba(0,0,0,.18);
     padding-top:env(safe-area-inset-top, 0px);
   }
@@ -200,12 +273,12 @@
   .bnav { flex:1; height:60px; box-sizing:border-box; border:none; background:none;
           cursor:pointer;
           display:flex; flex-direction:column; align-items:center; justify-content:center;
-          gap:2px; padding:8px 2px; color:#6b7280; font-weight:800;
-          font-size:0.8235rem; border-bottom:4px solid transparent; }
+          gap:2px; padding:8px 2px; color:var(--ink-3); font-weight:800;
+          font-size:0.94rem; border-bottom:4px solid transparent; }
   .bnav .bicon { font-size:1.2941rem; line-height:1; }
   /* The active marker moves to the underside now that the bar is on top, so
      it still points at the panel it belongs to. */
-  .bnav.on { color:#1e3a8a; border-bottom-color:#1e3a8a; background:#eff6ff; }
+  .bnav.on { color:var(--navy); border-bottom-color:var(--navy); background:var(--navy-tint); }
   .bnav:disabled { opacity:.4; cursor:default; }
 
   /* ==========================================================
@@ -216,90 +289,109 @@
      ========================================================== */
   #weatherbar {
     position:fixed; top:var(--navh); left:0; right:0; z-index:1390;
-    background:#f8fafc; border-bottom:2px solid #e5e7eb;
+    background:#f8fafc; border-bottom:2px solid var(--line-soft);
     padding:6px 12px; box-sizing:border-box;
     display:flex; align-items:center; gap:10px;
     overflow-x:auto; white-space:nowrap;
-    scrollbar-width:none; font-size:0.8235rem; font-weight:700; color:#374151;
+    scrollbar-width:none; font-size:0.94rem; font-weight:700; color:var(--ink-2);
   }
   #weatherbar::-webkit-scrollbar { display:none; }
   .wxitem { flex:0 0 auto; display:flex; align-items:center; gap:4px; }
-  .wxlabel { color:#6b7280; font-weight:700; }
+  .wxlabel { color:var(--ink-3); font-weight:700; }
   .wxtemp { color:#111; font-weight:800; }
   /* A warning is not decoration: it gets the loud colour and the first place. */
-  .wxwarn { flex:0 0 auto; background:#b91c1c; color:white; border-radius:6px;
+  .wxwarn { flex:0 0 auto; background:var(--red); color:white; border-radius:8px;
             padding:3px 8px; font-weight:800; }
-  .wxwarn.amber { background:#b45309; }
-  .wxwarn.notice { background:#1e3a8a; }
+  .wxwarn.amber { background:var(--amber); }
+  .wxwarn.notice { background:var(--navy); }
+
+  /* NO CONNECTION. Shares the weather bar because it belongs to the same
+     question — what do I need to know before I set off? Grey, not red: being
+     offline is a limit, not a danger, and the red is spoken for by rainstorm
+     and typhoon signals that really do stop the buses. */
+  .wxoff { flex:0 0 auto; background:var(--ink-3); color:white; border-radius:8px;
+           padding:3px 8px; font-weight:800; }
+
+  /* A NEW VERSION IS READY. A button, not a notice, because it does
+     something when tapped — and 44px tall so it can be tapped by someone
+     whose hands are not steady, in a bar built for 0.8235rem text. */
+  .wxupdate { flex:0 0 auto; min-height:44px; border:none; border-radius:8px;
+              background:var(--green); color:white; font-weight:800;
+              font-size:0.94rem; padding:0 12px; cursor:pointer; }
 
   /* FAVOURITES LIST. Full names, not the two-character chips used in the
      form — this is the screen where someone reads rather than recognises. */
   /* COMPACT ROWS. At the old 140px only four fitted an iPhone SE, so six
      favourites meant scrolling past two of them — which costs more effort
      than the taps it saved. One primary button visible, the rest behind ⋯. */
-  #favview .favrow { border:2px solid #e5e7eb; border-radius:10px; padding:10px 12px;
+  #favview .favrow { border:2px solid var(--line-soft); border-radius:12px; padding:10px 12px;
                      margin-bottom:8px; }
   #favview .favtop { display:flex; align-items:center; gap:8px; }
   #favview .favname { font-size:1.0588rem; font-weight:800; color:#111;
                       flex:1; min-width:0; word-break:break-word; }
-  #favview .favmore { flex:0 0 44px; min-height:48px; border-radius:8px;
-                      border:2px solid #d1d5db; background:white; color:#6b7280;
+  #favview .favmore { flex:0 0 44px; min-height:48px; border-radius:10px;
+                      border:2px solid var(--line); background:white; color:var(--ink-3);
                       font-size:1.1765rem; font-weight:800; cursor:pointer; }
-  #favview .favmore.on { background:#f3f4f6; }
+  #favview .favmore.on { background:var(--surface-2); }
   #favview .favacts { margin-top:8px; }
-  #favview .favcount { font-size:0.8235rem; font-weight:700; color:#6b7280; }
+  #favview .favcount { font-size:0.94rem; font-weight:700; color:var(--ink-3); }
 
   /* LIVE STRIP — the answer before the question. */
   #livestrip { margin-bottom:12px; }
   #livestrip:empty { display:none; }
-  .livehead { font-size:0.8824rem; font-weight:800; color:#4b5563; margin-bottom:8px; }
+  .livehead { font-size:1rem; font-weight:800; color:var(--ink-3); margin-bottom:8px; }
   /* ASKING FOR LOCATION. Sits above everything on first open, phrased as a
      question with a reason, because the browser's own box gives neither. */
-  #geoask { border:2px solid #1e3a8a; border-radius:12px; padding:14px; margin-bottom:12px;
-            background:#eff6ff; }
-  .geotitle { font-size:1.0588rem; font-weight:800; color:#1e3a8a; margin-bottom:6px; }
-  .geobody { font-size:0.9412rem; line-height:1.5; color:#374151; margin-bottom:12px; }
+  #geoask { border:2px solid var(--navy); border-radius:12px; padding:14px; margin-bottom:12px;
+            background:var(--navy-tint); }
+  .geotitle { font-size:1.0588rem; font-weight:800; color:var(--navy); margin-bottom:6px; }
+  .geobody { font-size:1rem; line-height:1.5; color:var(--ink-2); margin-bottom:12px; }
   .geobtns { display:flex; gap:10px; }
-  .geobtns button { flex:1; min-height:52px; border-radius:8px; font-size:1rem;
-                    font-weight:800; cursor:pointer; }
-  .geoyes { border:none; background:#15803d; color:white; }
-  .geono  { border:2px solid #d1d5db; background:white; color:#4b5563; }
+  .geobtns button { flex:1; min-height:52px; border-radius:10px; font-size:1rem;
+                    font-weight:800; cursor:pointer; padding:8px 6px; }
+  /* "好，使用我的位置" is twice the length of "暫時不用". Equal widths broke its
+     last character onto a second line on a 360px phone; the yes button gets
+     room in proportion to what it has to say. */
+  /* Written as .geobtns .geoyes on purpose: a bare .geoyes loses to
+     ".geobtns button" above on specificity and the flex never applies. */
+  .geobtns .geoyes { flex:1.4; border:none; background:var(--green); color:white; }
+  .geono  { border:2px solid var(--line); background:white; color:var(--ink-3); }
 
   /* NEARBY: one line per route, so the eye runs straight down the times. */
-  .livecard.nearby { border-left-color:#1d4ed8; }
+  .livecard.nearby { border-left-color:var(--blue); }
   .nearrow { display:flex; align-items:baseline; gap:8px; padding:4px 0;
-             border-top:1px solid #e5e7eb; }
+             border-top:1px solid var(--line-soft); }
   .nearrow:first-child { border-top:none; }
-  .nearroute { font-size:1.1765rem; font-weight:800; color:#1d4ed8;
+  .nearroute { font-size:1.1765rem; font-weight:800; color:var(--blue);
                flex:0 0 68px; }
-  .neardest { flex:1; min-width:0; font-size:0.8824rem; color:#4b5563; font-weight:700;
+  .neardest { flex:1; min-width:0; font-size:1rem; color:var(--ink-3); font-weight:700;
               overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .nearmin { font-size:1.0588rem; font-weight:800; color:#15803d; white-space:nowrap; }
+  .nearmin { font-size:1.0588rem; font-weight:800; color:var(--green); white-space:nowrap; }
 
   /* The pole code, shown ONLY where it helps: standing in the street, it is
      painted on the pole and it is how you know you are at the right one. */
-  .polecode { display:inline-block; margin-left:8px; padding:1px 7px; border-radius:6px;
-              background:#1d4ed8; color:white; font-size:0.8235rem; font-weight:800;
+  .polecode { display:inline-block; margin-left:8px; padding:1px 7px; border-radius:8px;
+              background:var(--blue); color:white; font-size:0.94rem; font-weight:800;
               vertical-align:2px; }
 
   /* ADD A ROUTE BY NUMBER */
-  .addroutebtn { width:100%; min-height:52px; margin-bottom:8px; border:2px dashed #1d4ed8;
-                 border-radius:10px; background:white; color:#1d4ed8;
+  .addroutebtn { width:100%; min-height:52px; margin-bottom:8px; border:2px dashed var(--blue);
+                 border-radius:12px; background:white; color:var(--blue);
                  font-size:1rem; font-weight:800; cursor:pointer; }
-  .addroutebtn.on { background:#eff6ff; }
+  .addroutebtn.on { background:var(--navy-tint); }
   .addroutepanel { margin-bottom:10px; }
   .addroutepanel input { width:100%; box-sizing:border-box; padding:12px 14px; min-height:52px;
-                         border:2px solid #d1d5db; border-radius:8px; font-size:1.0588rem;
+                         border:2px solid var(--line); border-radius:10px; font-size:1.0588rem;
                          font-weight:700; }
-  .addroutehint { font-size:0.8235rem; color:#6b7280; margin:8px 0 6px; }
+  .addroutehint { font-size:0.94rem; color:var(--ink-3); margin:8px 0 6px; }
   .addrouteitem { display:flex; align-items:center; gap:10px; width:100%; min-height:52px;
-                  margin-bottom:6px; padding:8px 12px; border:2px solid #d1d5db;
-                  border-radius:8px; background:white; cursor:pointer; text-align:left; }
-  .addrouteitem.on { border-color:#d97706; background:#fffbeb; }
-  .ariroute { font-size:1.1765rem; font-weight:800; color:#1d4ed8; flex:0 0 68px; }
-  .aridest { flex:1; min-width:0; font-size:0.9412rem; font-weight:700; color:#374151;
+                  margin-bottom:6px; padding:8px 12px; border:2px solid var(--line);
+                  border-radius:10px; background:white; cursor:pointer; text-align:left; }
+  .addrouteitem.on { border-color:var(--amber); background:var(--amber-tint); }
+  .ariroute { font-size:1.1765rem; font-weight:800; color:var(--blue); flex:0 0 68px; }
+  .aridest { flex:1; min-width:0; font-size:1rem; font-weight:700; color:var(--ink-2);
              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .aritick { font-size:1.1765rem; font-weight:800; color:#d97706; flex:0 0 auto; }
+  .aritick { font-size:1.1765rem; font-weight:800; color:var(--amber); flex:0 0 auto; }
 
   /* ==========================================================
      THE STOP LIST — every stop on the chosen route, in order.
@@ -311,53 +403,53 @@
   #routestops { margin-bottom:14px; }
   .rshead { display:flex; align-items:center; gap:10px; margin:4px 0 10px; }
   .rstitle { flex:1; min-width:0; font-size:1.0588rem; font-weight:800; color:#111; }
-  .rstitle small { display:block; font-size:0.8235rem; font-weight:700; color:#6b7280;
+  .rstitle small { display:block; font-size:0.94rem; font-weight:700; color:var(--ink-3);
                    margin-top:2px; }
-  .rsclose { flex:0 0 44px; height:44px; border-radius:8px; border:2px solid #e5e7eb;
-             background:white; color:#6b7280; font-size:1rem; font-weight:800; cursor:pointer; }
+  .rsclose { flex:0 0 44px; height:44px; border-radius:10px; border:2px solid var(--line-soft);
+             background:white; color:var(--ink-3); font-size:1rem; font-weight:800; cursor:pointer; }
 
-  .rshint { font-size:0.8235rem; color:#6b7280; line-height:1.45; margin-bottom:10px; }
+  .rshint { font-size:0.94rem; color:var(--ink-3); line-height:1.45; margin-bottom:10px; }
 
   .rsrow { display:flex; align-items:center; gap:8px; padding:8px 6px;
-           border-bottom:2px solid #f3f4f6; }
+           border-bottom:2px solid var(--surface-2); }
   .rsrow:last-child { border-bottom:none; }
   /* The number is the point of the list, so it is the one thing that never
      shrinks and never wraps. */
-  .rsnum { flex:0 0 34px; height:34px; border-radius:17px; background:#eff6ff;
-           color:#1e3a8a; font-size:0.8824rem; font-weight:800;
+  .rsnum { flex:0 0 34px; height:34px; border-radius:17px; background:var(--navy-tint);
+           color:var(--navy); font-size:1rem; font-weight:800;
            display:flex; align-items:center; justify-content:center; }
   .rspick { flex:1; min-width:0; text-align:left; background:none; border:none;
             padding:6px 2px; min-height:44px; cursor:pointer; font:inherit; }
-  .rsname { font-size:0.9412rem; font-weight:700; color:#111; line-height:1.3;
+  .rsname { font-size:1rem; font-weight:700; color:#111; line-height:1.3;
             word-break:break-word; }
-  .rseta { font-size:0.8235rem; font-weight:800; color:#15803d; margin-top:2px; }
-  .rseta.quiet { font-weight:600; color:#9ca3af; }
-  .rsstar { flex:0 0 44px; height:44px; border-radius:8px; border:2px solid #e5e7eb;
-            background:white; color:#9ca3af; font-size:1.1765rem; cursor:pointer; padding:0; }
-  .rsstar.on { border-color:#d97706; background:#fffbeb; color:#d97706; }
+  .rseta { font-size:0.94rem; font-weight:800; color:var(--green); margin-top:2px; }
+  .rseta.quiet { font-weight:600; color:var(--ink-3); }
+  .rsstar { flex:0 0 44px; height:44px; border-radius:10px; border:2px solid var(--line-soft);
+            background:white; color:var(--ink-3); font-size:1.1765rem; cursor:pointer; padding:0; }
+  .rsstar.on { border-color:var(--amber); background:var(--amber-tint); color:var(--amber); }
 
   /* BOARDING MARK. Tapping a stop marks it; every stop after it then says how
      many stops away it is, which is the actual question — "how many more?" */
-  .rsrow.board { background:#f0fdf4; border-radius:8px; }
-  .rsrow.board .rsnum { background:#15803d; color:white; }
-  .rsrow.after .rsnum { background:#dbeafe; }
-  .rscount { font-size:0.8235rem; font-weight:800; color:#1d4ed8; margin-top:2px; }
-  .rsboardtag { font-size:0.8235rem; font-weight:800; color:#15803d; margin-top:2px; }
+  .rsrow.board { background:var(--green-tint); border-radius:10px; }
+  .rsrow.board .rsnum { background:var(--green); color:white; }
+  .rsrow.after .rsnum { background:var(--blue-tint); }
+  .rscount { font-size:0.94rem; font-weight:800; color:var(--blue); margin-top:2px; }
+  .rsboardtag { font-size:0.94rem; font-weight:800; color:var(--green); margin-top:2px; }
 
-  .livehint { border:2px dashed #d1d5db; border-radius:10px; padding:12px;
-              font-size:0.9412rem; line-height:1.5; color:#6b7280; }
-  .livecard { border:2px solid #e5e7eb; border-left:6px solid #15803d; border-radius:10px;
-              padding:10px 12px; margin-bottom:8px; background:#f9fafb; }
+  .livehint { border:2px dashed var(--line); border-radius:12px; padding:12px;
+              font-size:1rem; line-height:1.5; color:var(--ink-3); }
+  .livecard { border:2px solid var(--line-soft); border-left:6px solid var(--green); border-radius:12px;
+              padding:10px 12px; margin-bottom:8px; background:var(--surface-3); }
   .livetitle { font-size:1.0588rem; font-weight:800; color:#111; line-height:1.3;
                overflow-wrap:anywhere; }
-  .livesub { font-size:0.8235rem; color:#6b7280; margin-top:2px; overflow-wrap:anywhere; }
-  .livetimes { font-size:1.2941rem; font-weight:800; color:#15803d; margin-top:6px; }
-  .livetimes.quiet { font-size:0.9412rem; font-weight:600; color:#6b7280; }
+  .livesub { font-size:0.94rem; color:var(--ink-3); margin-top:2px; overflow-wrap:anywhere; }
+  .livetimes { font-size:1.2941rem; font-weight:800; color:var(--green); margin-top:6px; }
+  .livetimes.quiet { font-size:1rem; font-weight:600; color:var(--ink-3); }
   .liveway { display:flex; justify-content:space-between; align-items:baseline;
              gap:10px; margin-top:4px; }
-  .liveto { font-size:0.8824rem; font-weight:700; color:#374151; min-width:0;
+  .liveto { font-size:1rem; font-weight:700; color:var(--ink-2); min-width:0;
             overflow-wrap:anywhere; }
-  .livemin { font-size:1.1765rem; font-weight:800; color:#15803d; white-space:nowrap; }
+  .livemin { font-size:1.1765rem; font-weight:800; color:var(--green); white-space:nowrap; }
 
   /* TRIP PICKER: two columns, one shared list. */
   /* One list per section, full width, so a long stop name is read in one
@@ -367,67 +459,67 @@
      mistaken for the other. */
   #favview .triprow { display:flex; gap:6px; margin-bottom:6px; }
   #favview .tripitem { flex:1; min-width:0; min-height:56px;
-                       border:2px solid #d1d5db; border-left:8px solid #d1d5db;
-                       border-radius:8px; background:white;
+                       border:2px solid var(--line); border-left:8px solid var(--line);
+                       border-radius:10px; background:white;
                        font-size:1rem; font-weight:700; color:#111; cursor:pointer;
                        padding:8px 12px; line-height:1.3; text-align:left;
                        word-break:break-word; box-sizing:border-box; }
   /* No colour stripe on "my location": it is not a saved place, and an 8px
      dashed edge renders as a column of blocks. */
-  #favview .tripitem.here { width:100%; border:2px dashed #d1d5db;
-                            color:#1d4ed8; text-align:center; margin-bottom:6px; }
-  #favview .tripitem.on { background:#1e3a8a; border-color:#1e3a8a; color:white; }
+  #favview .tripitem.here { width:100%; border:2px dashed var(--line);
+                            color:var(--blue); text-align:center; margin-bottom:6px; }
+  #favview .tripitem.on { background:var(--navy); border-color:var(--navy); color:white; }
   #favview .tripitem:disabled { opacity:.5; }
-  #favview .tripdel { flex:0 0 52px; min-height:56px; border-radius:8px;
-                      border:2px solid #e5e7eb; background:white; color:#6b7280;
+  #favview .tripdel { flex:0 0 52px; min-height:56px; border-radius:10px;
+                      border:2px solid var(--line-soft); background:white; color:var(--ink-3);
                       font-size:1rem; font-weight:800; cursor:pointer; padding:0; }
-  #favview .tripdel:hover { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+  #favview .tripdel:hover { background:#fef2f2; border-color:#fecaca; color:var(--red); }
   /* Send this place to the other list. */
-  #favview .tripcopy { flex:0 0 52px; min-height:56px; border-radius:8px;
-                       border:2px solid #e5e7eb; background:white;
-                       font-size:0.8235rem; cursor:pointer; padding:0; }
+  #favview .tripcopy { flex:0 0 52px; min-height:56px; border-radius:10px;
+                       border:2px solid var(--line-soft); background:white;
+                       font-size:0.94rem; cursor:pointer; padding:0; }
   #favview .tripcopy:disabled { opacity:.35; cursor:default; }
-  #favview .tripcopy.done { border-color:#bbf7d0; background:#f0fdf4; }
+  #favview .tripcopy.done { border-color:#bbf7d0; background:var(--green-tint); }
   #favview .favmanage { width:100%; min-height:48px; margin-bottom:10px;
-                        border:2px solid #d1d5db; border-radius:8px; background:white;
-                        font-size:0.9412rem; font-weight:700; color:#4b5563; cursor:pointer; }
-  #favview .favmanage.on { background:#f3f4f6; }
+                        border:2px solid var(--line); border-radius:10px; background:white;
+                        font-size:1rem; font-weight:700; color:var(--ink-3); cursor:pointer; }
+  #favview .favmanage.on { background:var(--surface-2); }
 
   /* SAVED DEPARTURES. No button at all — the countdown is the content. */
-  #favview .deprow { position:relative; border:2px solid #e5e7eb; border-radius:10px;
+  #favview .deprow { position:relative; border:2px solid var(--line-soft); border-radius:12px;
                      padding:10px 52px 10px 12px; margin-bottom:8px; }
   #favview .depmain { display:flex; align-items:baseline; gap:8px; }
-  #favview .deproute { font-size:1.2941rem; font-weight:800; color:#1d4ed8; }
-  #favview .depdest { font-size:0.9412rem; color:#374151; font-weight:700;
+  #favview .deproute { font-size:1.2941rem; font-weight:800; color:var(--blue); }
+  #favview .depdest { font-size:1rem; color:var(--ink-2); font-weight:700;
                       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #favview .depstop { font-size:0.8235rem; color:#6b7280; margin-top:2px; }
-  #favview .depeta { font-size:1.2941rem; font-weight:800; color:#15803d; margin-top:4px; }
-  #favview .depeta.quiet { font-size:0.9412rem; font-weight:600; color:#6b7280; }
-  #favview .depopen { width:100%; min-height:48px; margin-top:8px; border-radius:8px;
-                      border:2px solid #bfdbfe; background:#eff6ff; color:#1d4ed8;
-                      font-size:0.9412rem; font-weight:800; cursor:pointer; }
-  #favview .depopen:hover { background:#dbeafe; }
+  #favview .depstop { font-size:0.94rem; color:var(--ink-3); margin-top:2px; }
+  #favview .depeta { font-size:1.2941rem; font-weight:800; color:var(--green); margin-top:4px; }
+  #favview .depeta.quiet { font-size:1rem; font-weight:600; color:var(--ink-3); }
+  #favview .depopen { width:100%; min-height:48px; margin-top:8px; border-radius:10px;
+                      border:2px solid #bfdbfe; background:var(--navy-tint); color:var(--blue);
+                      font-size:1rem; font-weight:800; cursor:pointer; }
+  #favview .depopen:hover { background:var(--blue-tint); }
   #favview .depdel { position:absolute; top:10px; right:10px; flex:0 0 auto;
                      width:40px; min-height:40px; }
 
   /* The star on an arrival row. */
   .eta-star { border:none; background:none; cursor:pointer; font-size:1.2941rem;
-              line-height:1; padding:2px 6px 2px 0; color:#9ca3af; }
-  .eta-star.on { color:#d97706; }
+              line-height:1; padding:2px 6px 2px 0; color:var(--ink-3); }
+  .eta-star.on { color:var(--amber); }
   /* The one-tap journey is the primary action, so it gets the width, the
      colour and the top position. Set-as-start and set-as-destination are the
      fallbacks underneath, deliberately quieter. */
   #favview .go-now { flex:0 0 auto; min-height:48px; padding:0 14px;
-                     border:none; border-radius:8px; background:#15803d; color:white;
-                     font-size:0.9412rem; font-weight:800; cursor:pointer; white-space:nowrap; }
-  #favview .go-now:disabled { background:#9ca3af; cursor:default; }
+                     border:none; border-radius:10px; background:var(--green); color:white;
+                     font-size:1rem; font-weight:800; cursor:pointer; white-space:nowrap; }
+  #favview .go-now:disabled { background:#6b7280; cursor:default; }
   #favview .favacts { display:flex; gap:8px; }
-  #favview .favacts button { flex:1; min-height:48px; border-radius:8px; border:2px solid #d1d5db;
-                             background:white; font-size:0.9412rem; font-weight:700; cursor:pointer; }
-  #favview .favacts .go-start { border-color:#15803d; color:#15803d; }
-  #favview .favacts .go-end   { border-color:#b91c1c; color:#b91c1c; }
-  #favview .favacts .go-del   { flex:0 0 60px; border-color:#d1d5db; color:#6b7280; }
-  #favview .favempty { color:#6b7280; padding:18px 4px; line-height:1.5; }
+  #favview .favacts button { flex:1; min-height:48px; border-radius:10px; border:2px solid var(--line);
+                             background:white; font-size:1rem; font-weight:700; cursor:pointer; }
+  #favview .favacts .go-start { border-color:var(--green); color:var(--green); }
+  #favview .favacts .go-end   { border-color:var(--red); color:var(--red); }
+  #favview .favacts .go-del   { flex:0 0 60px; border-color:var(--line); color:var(--ink-3); }
+  #favview .favempty { color:var(--ink-3); padding:18px 4px; line-height:1.5; }
 
   /* FAVOURITES TAKES THE WHOLE PANEL. Hiding the form and the results by
      name would break the moment either grew a new element, so instead
@@ -456,23 +548,23 @@
   /* SETTINGS. One row per setting: what it is on the left, the control on
      the right, each control a full 48px tap target. */
   #setview .setrow { display:flex; align-items:center; gap:12px;
-                     border:2px solid #e5e7eb; border-radius:10px;
+                     border:2px solid var(--line-soft); border-radius:12px;
                      padding:12px 14px; margin-bottom:10px; }
   #setview .setlabel { flex:1; min-width:0; font-size:1rem; font-weight:700; color:#111; }
-  #setview .setnote { color:#6b7280; padding:4px 4px 18px; line-height:1.5;
-                      font-size:0.8824rem; }
-  .legfare { font-size:1.0588rem; font-weight:800; color:#0f766e; margin-left:12px;
-             background:#f0fdfa; padding:3px 10px; border-radius:6px;
+  #setview .setnote { color:var(--ink-3); padding:4px 4px 18px; line-height:1.5;
+                      font-size:1rem; }
+  .legfare { font-size:1.0588rem; font-weight:800; color:var(--teal); margin-left:12px;
+             background:var(--teal-tint); padding:3px 10px; border-radius:8px;
              vertical-align:middle; }
   /* Long Chinese place names such as 港珠澳大橋旅檢大樓 (落客站) were running
      off the right edge instead of wrapping. */
   .jcard .jdet { font-size:1rem; line-height:1.6; color:#111;
                  overflow-wrap:anywhere; word-break:break-word; }
   .jcard, .jcard * { min-width:0; }
-  .jcard .jtime { font-size:1.1765rem; font-weight:800; color:#15803d; margin-top:6px; }
-  #findbuses { width:100%; min-height:56px; border:none; border-radius:8px; background:#15803d;
+  .jcard .jtime { font-size:1.1765rem; font-weight:800; color:var(--green); margin-top:6px; }
+  #findbuses { width:100%; min-height:56px; border:none; border-radius:10px; background:var(--green);
                color:white; font-size:1.1176rem; font-weight:800; cursor:pointer; margin-bottom:16px; }
-  #findbuses:disabled { background:#9ca3af; cursor:default; }
+  #findbuses:disabled { background:#6b7280; cursor:default; }
 
   /* RESULTS MODE
      Once a journey is on screen, the entry form is just clutter — the user
@@ -487,55 +579,60 @@
              padding-bottom:10px; margin-bottom:10px;
              border-bottom:2px solid rgba(255,255,255,.25); }
   #rb-trip .tp { font-size:1rem; font-weight:800; }
-  #rb-trip .tp small { display:block; font-size:0.7647rem; font-weight:600; opacity:.8; }
+  #rb-trip .tp small { display:block; font-size:0.94rem; font-weight:600; opacity:.8; }
   #rb-trip .arrow { font-size:1.1765rem; opacity:.8; }
   #rb-edit { margin-left:auto; border:2px solid rgba(255,255,255,.6); background:transparent;
-             color:white; border-radius:8px; padding:10px 14px; font-size:0.8824rem;
+             color:white; border-radius:10px; padding:10px 14px; font-size:1rem;
              font-weight:700; cursor:pointer; min-height:44px; }
   #rb-edit:hover { background:rgba(255,255,255,.15); }
 
-  #shownotrunning { display:flex; align-items:center; gap:10px; font-size:0.8824rem;
-                    color:#4b5563; margin-bottom:12px; cursor:pointer; }
-  #shownotrunning input { width:24px; height:24px; }
+  /* The whole row toggles it, but the box is what an older eye aims for, so
+     the box itself is big enough to be a target — 24px was the one control
+     the audit found under size. */
+  #shownotrunning { display:flex; align-items:center; gap:12px; font-size:1rem;
+                    color:var(--ink-2); margin-bottom:12px; cursor:pointer;
+                    min-height:48px; font-weight:700; }
+  #shownotrunning input { width:30px; height:30px; flex:0 0 30px; accent-color:var(--navy);
+                          cursor:pointer; }
   #panel.results #shownotrunning { display:none; }
 
-  #status { font-size:0.9412rem; color:#374151; border-top:2px solid #e5e7eb; padding-top:10px; }
+  #status { font-size:1rem; color:var(--ink-2); border-top:2px solid var(--line-soft); padding-top:10px; }
 
   /* Arrival times: the thing people squint at, so the biggest text in the app. */
   .eta-row { margin:12px 0; }
-  .eta-route { display:inline-block; min-width:60px; font-weight:800; color:#b91c1c; font-size:1.4118rem; }
+  .eta-route { display:inline-block; min-width:60px; font-weight:800; color:var(--red); font-size:1.4118rem; }
   .eta-dest { color:#222; font-size:1rem; }
   .eta-times { font-weight:800; font-size:1.5294rem; color:#111; display:block; margin-top:2px; }
-  .eta-fare { display:inline-block; margin-left:8px; padding:1px 7px; border-radius:10px;
-              background:#fee2e2; color:#b91c1c; font-weight:800; font-size:0.8824rem; vertical-align:2px; }
-  .eta-note { color:#444; font-size:0.8824rem; }
+  .eta-fare { display:inline-block; margin-left:8px; padding:1px 7px; border-radius:12px;
+              background:var(--red-tint); color:var(--red); font-weight:800; font-size:1rem; vertical-align:2px; }
+  .eta-note { color:#444; font-size:1rem; }
   .leaflet-popup-content { font-size:1.0588rem; min-width:240px; }
   .leaflet-popup-content b { font-size:1.1765rem; }
 
   /* START / END markers: large enough to read at arm's length. */
   .endwrap { display:flex; align-items:center; white-space:nowrap; }
-  .enddot { width:44px; height:44px; border-radius:22px; flex:0 0 44px; background:#16a34a;
+  .enddot { width:44px; height:44px; border-radius:22px; flex:0 0 44px; background:var(--green);
             border:4px solid white; color:white; font-size:1.2941rem; font-weight:800;
             line-height:36px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.5); }
-  .endtext { background:#16a34a; color:white; font-weight:800; font-size:1rem; padding:8px 14px;
-             border-radius:8px; margin-left:-6px; box-shadow:0 2px 8px rgba(0,0,0,.5);
+  .endtext { background:var(--green); color:white; font-weight:800; font-size:1rem; padding:8px 14px;
+             border-radius:10px; margin-left:-6px; box-shadow:0 2px 8px rgba(0,0,0,.5);
              max-width:250px; overflow:hidden; text-overflow:ellipsis; }
-  .endwrap.finish .enddot, .endwrap.finish .endtext { background:#dc2626; }
+  .endwrap.finish .enddot, .endwrap.finish .endtext { background:var(--red); }
   .endwrap.flip { flex-direction:row-reverse; justify-content:flex-end; }
   .endwrap.flip .endtext { margin-left:0; margin-right:-6px; text-align:right; }
 
   .optbadge { color:white; font-weight:800; font-size:1.2941rem; width:46px; height:46px;
               border-radius:23px; text-align:center; line-height:42px;
               border:3px solid white; box-shadow:0 2px 8px rgba(0,0,0,.55); }
-  .optlabel { color:white; font-weight:800; font-size:0.8824rem; padding:7px 11px;
-              border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.5);
+  .optlabel { color:white; font-weight:800; font-size:1rem; padding:7px 11px;
+              border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.5);
               white-space:nowrap; line-height:1.3; }
 
   .jcard { position:relative; padding-left:56px; }
   .jnum { position:absolute; left:12px; top:12px; width:36px; height:36px;
           border-radius:18px; color:white; font-size:1.1176rem; font-weight:800;
           text-align:center; line-height:36px; }
-  .jcard.chosen-card { background:#eff6ff; border-width:4px; }
+  .jcard.chosen-card { background:var(--navy-tint); border-width:4px; }
   .jcard.dim-card { opacity:.45; }
   .jcard.dim-card:hover { opacity:1; }
   /* Four big numbers in one flex row could not fit a phone, so each one
@@ -545,46 +642,46 @@
      never be separated. */
   .jheadline { display:grid; grid-template-columns:1fr 1fr; gap:10px 12px;
                margin:10px 0 12px; }
-  .jcell { background:#f9fafb; border-radius:10px; padding:10px 12px; min-width:0; }
+  .jcell { background:var(--surface-3); border-radius:12px; padding:10px 12px; min-width:0; }
   .jbig { font-size:1.8824rem; font-weight:800; color:#111; line-height:1.1;
           white-space:nowrap; }
-  .junit { display:block; font-size:0.8824rem; font-weight:700; color:#4b5563;
+  .junit { display:block; font-size:1rem; font-weight:700; color:var(--ink-3);
            margin-top:2px; }
-  .jsmallfare { font-size:0.8824rem; font-weight:700; color:#6b7280; }
-  .jextra { font-size:0.8824rem; font-weight:700; color:#0f766e; background:#f0fdfa;
-            border-radius:6px; padding:6px 10px; margin-bottom:8px; }
-  .jwhy { font-size:0.9412rem; line-height:1.5; color:#4b5563; margin-bottom:10px; }
-  .jnext { background:#052e16; color:#bbf7d0; border-radius:8px; padding:10px 12px;
-           margin:8px 0; font-size:0.9412rem; font-weight:700; }
+  .jsmallfare { font-size:1rem; font-weight:700; color:var(--ink-3); }
+  .jextra { font-size:1rem; font-weight:700; color:var(--teal); background:var(--teal-tint);
+            border-radius:8px; padding:6px 10px; margin-bottom:8px; }
+  .jwhy { font-size:1rem; line-height:1.5; color:var(--ink-3); margin-bottom:10px; }
+  .jnext { background:#052e16; color:#bbf7d0; border-radius:10px; padding:10px 12px;
+           margin:8px 0; font-size:1rem; font-weight:700; }
   .jnext .mins { font-size:1.5294rem; font-weight:800; color:white; }
-  .jnext.waiting { background:#f3f4f6; color:#6b7280; font-weight:600; }
-  .jnext.warn { background:#fef3c7; color:#92400e; font-weight:700; }
+  .jnext.waiting { background:var(--surface-2); color:var(--ink-2); font-weight:700; }
+  .jnext.warn { background:#fef3c7; color:var(--amber); font-weight:700; }
 
-  .jwarn { background:#fff7ed; color:#9a3412; border-radius:8px; padding:9px 11px;
-           margin:8px 0; font-size:0.8824rem; font-weight:700; line-height:1.4; }
+  .jwarn { background:#fff7ed; color:#9a3412; border-radius:10px; padding:9px 11px;
+           margin:8px 0; font-size:1rem; font-weight:700; line-height:1.4; }
 
   .jzoom { display:flex; gap:8px; margin-top:10px; }
-  .zoombtn { flex:1; min-height:48px; border:2px solid #1d4ed8; background:white;
-             color:#1d4ed8; border-radius:8px; font-size:0.8824rem; font-weight:700;
+  .zoombtn { flex:1; min-height:48px; border:2px solid var(--blue); background:white;
+             color:var(--blue); border-radius:10px; font-size:1rem; font-weight:700;
              cursor:pointer; padding:8px 6px; }
-  .zoombtn:hover { background:#eff6ff; }
+  .zoombtn:hover { background:var(--navy-tint); }
 
-  .jtap { font-size:0.8235rem; color:#1d4ed8; font-weight:700; margin-top:8px; }
+  .jtap { font-size:0.94rem; color:var(--blue); font-weight:700; margin-top:8px; }
 
   #stopdetail { position:absolute; top:14px; right:14px; z-index:1200; width:330px;
                 max-width:calc(100vw - 30px); background:white; border-radius:12px;
                 padding:16px 18px; box-shadow:0 4px 18px rgba(0,0,0,.4);
-                border-left:10px solid #15803d; display:none; }
-  #stopdetail.alighting { border-left-color:#b91c1c; }
-  #sd-close { position:absolute; top:8px; right:10px; border:none; background:#f3f4f6;
+                border-left:10px solid var(--green); display:none; }
+  #stopdetail.alighting { border-left-color:var(--red); }
+  #sd-close { position:absolute; top:8px; right:10px; border:none; background:var(--surface-2);
               width:40px; height:40px; border-radius:20px; font-size:1.1176rem; cursor:pointer; }
-  .sd-head { font-size:0.9412rem; font-weight:800; color:#15803d; padding-right:44px; }
-  #stopdetail.alighting .sd-head { color:#b91c1c; }
+  .sd-head { font-size:1rem; font-weight:800; color:var(--green); padding-right:44px; }
+  #stopdetail.alighting .sd-head { color:var(--red); }
   .sd-stop { font-size:1.4118rem; font-weight:800; margin:6px 0 2px; line-height:1.25; }
-  .sd-sub  { font-size:0.8824rem; color:#555; }
+  .sd-sub  { font-size:1rem; color:#555; }
   .sd-line { font-size:1rem; margin-top:10px; line-height:1.4; }
   .sd-walk { font-size:1.2941rem; font-weight:800; margin-top:10px; }
-  .sd-note { font-size:0.8235rem; color:#92400e; margin-top:10px; line-height:1.4; }
+  .sd-note { font-size:0.94rem; color:var(--amber); margin-top:10px; line-height:1.4; }
 
   .bigarrow { font-size:3.0588rem; line-height:52px; font-weight:900;
               text-shadow:0 0 6px white, 0 0 12px white, 0 2px 4px rgba(0,0,0,.4);
@@ -670,17 +767,17 @@
 
   #compare { gap:6px; }
   .ctile { padding:8px 4px; }
-  .ctile .ctitle { font-size:0.6471rem; min-height:26px; }
+  .ctile .ctitle { font-size:0.94rem; min-height:26px; }
   .ctile .ctime  { font-size:1.2353rem; }
   .ctile .cbus   { font-size:1.1176rem; }
-  .ctile .cfare  { font-size:0.7647rem; }
+  .ctile .cfare  { font-size:0.94rem; }
 
   #stopdetail { top:calc(var(--toph) + 10px); right:10px; left:10px; width:auto; }
 
   #routebanner { padding:10px 12px; }
   #routebanner .rb-route { font-size:1.4118rem; }
   #routebanner .rb-line  { font-size:1rem; }
-  #rb-trip .tp { font-size:0.8824rem; }
+  #rb-trip .tp { font-size:1rem; }
   #rb-close { width:44px; height:44px; font-size:1.1765rem; top:8px; right:8px; }
 
   /* The Lands Department logo must stay visible. The bar is overhead now, so
@@ -689,14 +786,14 @@
   #landsdlogo { top:auto; bottom:6px; left:8px; }
 
   #routebanner { position:absolute; bottom:0; left:0; right:0; z-index:1000;
-                 background:#1e3a8a; color:white; padding:14px 18px; display:none;
+                 background:var(--navy); color:white; padding:14px 18px; display:none;
                  padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px)); }
   #routebanner.ctb { background:#9a3412; }
   #routebanner .rb-route { font-size:1.8824rem; font-weight:800; }
-  #routebanner .rb-company { font-size:0.8824rem; opacity:.85; margin-left:10px; }
+  #routebanner .rb-company { font-size:1rem; opacity:.85; margin-left:10px; }
   #routebanner .rb-line { font-size:1.2941rem; margin-top:8px; }
   #routebanner .rb-label { display:inline-block; min-width:76px; font-weight:800; font-size:1rem; opacity:.9; }
-  #routebanner .rb-note { font-size:0.8235rem; opacity:.85; margin-top:8px; }
+  #routebanner .rb-note { font-size:0.94rem; opacity:.85; margin-top:8px; }
   #rb-close { position:absolute; top:10px; right:12px; background:rgba(255,255,255,.2);
               border:none; color:white; font-size:1.4118rem; width:52px; height:52px;
               border-radius:26px; cursor:pointer; }
@@ -946,7 +1043,14 @@ const TEXT = {
     saveStart:'⭐ Save start "{name}" to favourites', saveEnd:'⭐ Save destination "{name}" to favourites',
     searchCancelled:'Search cancelled — points were cleared.',
     noNearby:'No nearby stops.', nothingFound:'Nothing found.', searchFailed:'Route search failed.',
-    noJourneyBody:'We looked for one bus, and for one change of bus. Your points may be too far apart for KMB alone, or need two or more changes.'
+    noJourneyBody:'We looked for one bus, and for one change of bus. Your points may be too far apart for KMB alone, or need two or more changes.',
+    offlineChip:'📴 No connection',
+    offlineWhat:'No connection. Journeys, fares and favourites still work. Live arrival times, the weather and the map need a connection.',
+    backOnline:'Back online.',
+    updateReady:'⬆ New version — tap to update',
+    settingInstall:'Add to home screen', install:'Install',
+    installNote:'Installs like an app, with its own icon. It then opens without the browser bar, and works without a connection except for live times and the map.',
+    installedAlready:'✓ Already installed'
   },
   zh: {
     appname:'香港快線', start:'起點', destination:'目的地',
@@ -1060,7 +1164,14 @@ const TEXT = {
     saveStart:'⭐ 將起點「{name}」加入常用地點', saveEnd:'⭐ 將目的地「{name}」加入常用地點',
     searchCancelled:'已取消搜尋 — 地點已清除。',
     noNearby:'附近沒有巴士站。', nothingFound:'找不到結果。', searchFailed:'搜尋路線失敗。',
-    noJourneyBody:'已搜尋直達及轉乘一次的路線。你的起點與目的地可能相距太遠，或需轉乘兩次以上。'
+    noJourneyBody:'已搜尋直達及轉乘一次的路線。你的起點與目的地可能相距太遠，或需轉乘兩次以上。',
+    offlineChip:'📴 沒有網絡',
+    offlineWhat:'沒有網絡。仍可規劃路線、查看車費及常用地點。即時到站時間、天氣及地圖則需要網絡。',
+    backOnline:'已重新連線。',
+    updateReady:'⬆ 有新版本 — 按此更新',
+    settingInstall:'加到主畫面', install:'安裝',
+    installNote:'像應用程式一樣安裝，有自己的圖示。開啟時沒有瀏覽器的網址列，除即時到站時間及地圖外，沒有網絡也可使用。',
+    installedAlready:'✓ 已安裝'
   }
 };
 
@@ -1569,7 +1680,7 @@ function renderPlaceResults(which, places) {
 
   if (which === 'end' && reachableStops && startPoint && places.length) {
     const note = document.createElement('li');
-    note.style.cssText = 'background:#f0fdf4;color:#15803d;font-size:0.8235rem;font-weight:700';
+    note.style.cssText = 'background:#f0fdf4;color:#166534;font-size:0.94rem;font-weight:700';
     note.textContent = T('onlyReachable');
     list.appendChild(note);
   }
@@ -1578,7 +1689,7 @@ function renderPlaceResults(which, places) {
     const item = document.createElement('li');
 
     const away = place.awayM === undefined ? '' :
-      '<div style="font-size:0.8235rem;color:#1d4ed8;font-weight:700;margin-top:2px">' +
+      '<div style="font-size:0.94rem;color:#1e40af;font-weight:700;margin-top:2px">' +
       (place.awayM < 1000
         ? Math.round(place.awayM) + ' m '
         : (place.awayM / 1000).toFixed(1) + ' km ') +
@@ -1698,8 +1809,8 @@ function redrawJourney() {
   showChosen('start-chosen', startPoint);
   showChosen('end-chosen', endPoint);
 
-  if (startPoint) drawPoint(startPoint, '#16a34a', 'A', T('start'));
-  if (endPoint)   drawPoint(endPoint, '#dc2626', 'B', T('destination'));
+  if (startPoint) drawPoint(startPoint, '#166534', 'A', T('start'));
+  if (endPoint)   drawPoint(endPoint, '#991b1b', 'B', T('destination'));
 
   const findButton = document.getElementById('findbuses');
   findButton.disabled = !(startPoint && endPoint);
@@ -1793,6 +1904,16 @@ let currentPicks = [];
 let routeStopsState = null;   // the open stop list, or null
 let weatherData = null;       // last Observatory reading — setPoint() reads it
 let busPicks = [], railPicks = [], railOptions = [], activeMode = 'bus';
+
+// The same rule once more, for the installing-and-offline section near the
+// bottom of this file. renderWeatherBar() reads updateWaiting and
+// renderSettings() reads installPrompt, and both of those can be called from
+// SETTINGS or from a GPS answer long before the bottom of the file is
+// reached — so the declarations are up here where they cannot be beaten to
+// it. The code that uses them is all together further down.
+let updateWaiting = null;   // registration holding a new version, if any
+let installPrompt = null;   // Chrome's install offer, saved until it is wanted
+let updateAsked   = false;  // did the rider ask for the new version?
 
 // Rail state lives up here for the same reason as the picks above: loadMtr()
 // is called during start-up so stations are searchable immediately, and a
@@ -1890,8 +2011,8 @@ const FAV_COLOURS = 8;      // one per possible entry in a list
 
 // The same eight colours the CSS uses for .c1–.c8, so a chip in the form and
 // its row on the favourites screen are recognisably the same place.
-const FAV_COLOUR_HEX = ['#15803d', '#1d4ed8', '#7e22ce', '#c2410c',
-                        '#0f766e', '#be185d', '#4d7c0f', '#b45309'];
+const FAV_COLOUR_HEX = ['#166534', '#1e40af', '#6b21a8', '#9a3412',
+                        '#115e59', '#9d174d', '#3f6212', '#92400e'];
 
 let favStart = [];          // places you leave FROM
 let favEnd   = [];          // places you travel TO
@@ -2114,6 +2235,18 @@ function applyLanguage() {
 // changes, so the button this listens for is a different element each time.
 // Listening on the container instead of the button survives that.
 document.getElementById('setview').addEventListener('click', event => {
+  // ADD TO HOME SCREEN. The saved offer can only be used once, so it is
+  // dropped either way — accepted or dismissed — and the row redrawn to
+  // match what actually happened.
+  if (event.target.closest('#installbtn')) {
+    if (!installPrompt) return;
+    const offer = installPrompt;
+    installPrompt = null;
+    offer.prompt();
+    offer.userChoice.finally(() => renderSettings());
+    return;
+  }
+
   if (!event.target.closest('#langbtn')) return;
   lang = lang === 'en' ? 'zh' : 'en';
   try { localStorage.setItem('hkfast-lang', lang); } catch (e) {}
@@ -3367,11 +3500,11 @@ async function findBuses() {
     const categories = [
       { list: gentlestFromOwnStop, title: T('easiestYourStop'),
         why: boardName ? T('boardAt') + ' ' + boardName + ' ' + T('leastEffort') : T('gentleWhy'),
-        colour: '#15803d' },
-      { list: byEffort,  title: T('gentlest'),     why: T('gentleWhy'), colour: '#7c3aed' },
-      { list: byTime,    title: T('fastest'),      why: T('fastWhy'),   colour: '#1d4ed8' },
-      { list: byWalking, title: T('leastWalking'), why: T('walkWhy'),   colour: '#b45309' },
-      { list: byFare,    title: T('cheapest'),     why: T('cheapWhy'),  colour: '#0f766e' }
+        colour: '#166534' },
+      { list: byEffort,  title: T('gentlest'),     why: T('gentleWhy'), colour: '#6b21a8' },
+      { list: byTime,    title: T('fastest'),      why: T('fastWhy'),   colour: '#1e40af' },
+      { list: byWalking, title: T('leastWalking'), why: T('walkWhy'),   colour: '#92400e' },
+      { list: byFare,    title: T('cheapest'),     why: T('cheapWhy'),  colour: '#115e59' }
     ];
 
     // Which journey wins each category, and which titles it earns.
@@ -3450,7 +3583,7 @@ async function findBuses() {
     if (fromYourStop.length === 0 && startPoint.stop) {
       box.insertAdjacentHTML('afterbegin',
         '<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;' +
-        'padding:12px;margin-bottom:10px;font-size:0.9412rem;line-height:1.45">' +
+        'padding:12px;margin-bottom:10px;font-size:1rem;line-height:1.45">' +
         '<b>' + T('noBusFromStop').replace('{stop}', stopName(startPoint.stop)) + '</b> ' +
         T('goesToDest') + '</div>');
     }
@@ -3462,7 +3595,7 @@ async function findBuses() {
       const name = holidayName();
       box.insertAdjacentHTML('afterbegin',
         '<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;' +
-        'padding:11px 13px;margin-bottom:10px;font-size:0.9412rem;font-weight:700;line-height:1.45">' +
+        'padding:11px 13px;margin-bottom:10px;font-size:1rem;font-weight:700;line-height:1.45">' +
         (kind === 'holiday'
           ? T('holidayToday').replace('{name}', name ? ' (' + name + ')' : '')
           : T('saturdayToday')) + '</div>');
@@ -3471,12 +3604,12 @@ async function findBuses() {
     if (hiddenNotRunning > 0) {
       box.insertAdjacentHTML('beforeend',
         '<div style="background:#eff6ff;border:2px solid #93c5fd;border-radius:8px;' +
-        'padding:10px 12px;margin-top:10px;font-size:0.8824rem;line-height:1.45">' +
+        'padding:10px 12px;margin-top:10px;font-size:1rem;line-height:1.45">' +
         T('hiddenNotRunning').replace('{n}', hiddenNotRunning) + '</div>');
     }
 
     box.insertAdjacentHTML('beforeend',
-      '<div style="font-size:0.8235rem;color:#92400e;line-height:1.45;margin-top:6px">' +
+      '<div style="font-size:0.94rem;color:#92400e;line-height:1.45;margin-top:6px">' +
       T('pleaseRead').replace('{t}', TRANSFER_PENALTY_MIN) +
       '<br><br>' + T('credits') + '</div>');
 
@@ -3722,9 +3855,9 @@ function makeCard(pick) {
     '<div class="jheadline">' +
       '<div class="jcell"><span class="jbig">' + journey.total + '</span>' +
         '<span class="junit">' + T('totalTime') + '</span></div>' +
-      '<div class="jcell"><span class="jbig" style="color:#15803d">' + journeyFareText(journey) +
+      '<div class="jcell"><span class="jbig" style="color:#166534">' + journeyFareText(journey) +
         '</span><span class="junit">' + T('totalFare') + '</span></div>' +
-      '<div class="jcell"><span class="jbig" style="color:#b45309">' + totalWalkMinutes(journey) +
+      '<div class="jcell"><span class="jbig" style="color:#92400e">' + totalWalkMinutes(journey) +
         '</span><span class="junit">' + T('totalWalk') + '</span></div>' +
       '<div class="jcell"><span class="jbig" style="color:#4b5563">' + journey.legs.length +
         '</span><span class="junit">' +
@@ -3752,7 +3885,7 @@ function makeCard(pick) {
   }
 
   inner += boardsAtChosen
-    ? '<div class="jdet" style="color:#15803d;font-weight:700">' + T('boardHere') + ' <b>' +
+    ? '<div class="jdet" style="color:#166534;font-weight:700">' + T('boardHere') + ' <b>' +
       stopName(journey.legs[0].on) + '</b></div>'
     : '<div class="jdet">' + T('walkTo') + ' ' + journey.walkOn.minutes + ' ' + T('minTo') + ' <b>' +
       stopName(journey.legs[0].on) + '</b></div>';
@@ -3771,7 +3904,7 @@ function makeCard(pick) {
                ? '<span class="legfare">$' + legFare.toFixed(1) + '</span>'
                : '') + '</div>' +
              '<div class="jdet">' + T('rideTo') + ' <b>' + stopName(leg.off) + '</b>' +
-             ' <span style="color:#6b7280">(' + leg.stops + ' ' +
+             ' <span style="color:#4b5563">(' + leg.stops + ' ' +
              T(isTrain ? 'stations' : 'stops') + ')</span></div>';
 
     if (index === 0 && journey.legs.length > 1) {
@@ -3780,11 +3913,11 @@ function makeCard(pick) {
       // so we flag the possibility instead of inventing a price.
       const changeStop = (leg.off.name_en || '') + (leg.off.name_tc || '');
       if (/轉車站|INTERCHANGE|BBI/i.test(changeStop)) {
-        inner += '<div class="jwarn" style="background:#eff6ff;color:#1d4ed8">' +
+        inner += '<div class="jwarn" style="background:#eff6ff;color:#1e40af">' +
                  T('bbiNote') + '</div>';
       }
 
-      inner += '<div class="jdet" style="color:#c2410c;font-weight:700">' +
+      inner += '<div class="jdet" style="color:#9a3412;font-weight:700">' +
                T(journey.legs[1] && journey.legs[1].co === 'mtr' && leg.co === 'mtr'
                  ? 'changeTrain' : 'changeBus') +
                (journey.transferWalk
@@ -3833,7 +3966,7 @@ function buildRailPicks(options) {
     journey, number: index + 1,
     title: index === 0 ? T('bestTrain') : T('another'),
     why: index === 0 ? T('bestTrainWhy') : T('anotherWhy'),
-    colour: '#b91c1c'
+    colour: '#991b1b'
   }));
 }
 
@@ -3947,7 +4080,31 @@ function renderSettings() {
       '<button class="gobtn" id="langbtn" style="min-width:110px">' +
         T('langButton') + '</button>' +
     '</div>' +
+    installRow() +
     '<div class="setnote">' + T('settingsNote') + '</div>';
+}
+
+// ADD TO HOME SCREEN. Three states, and only two of them are worth a row:
+// offered (the browser has said the app qualifies), already installed, or
+// neither — on a desktop, or in a browser that does not do this, where a
+// button that cannot work would read as a broken app.
+function installRow() {
+  if (installPrompt) {
+    return '<div class="setrow">' +
+             '<span class="setlabel">' + T('settingInstall') + '</span>' +
+             '<button class="gobtn" id="installbtn" style="min-width:110px">' +
+               T('install') + '</button>' +
+           '</div>' +
+           '<div class="setnote">' + T('installNote') + '</div>';
+  }
+  if (isInstalled()) {
+    return '<div class="setrow">' +
+             '<span class="setlabel">' + T('settingInstall') + '</span>' +
+             '<span class="setlabel" style="flex:0 0 auto;color:#166534">' +
+               T('installedAlready') + '</span>' +
+           '</div>';
+  }
+  return '';
 }
 
 // The favourites screen. The chips in the form show two characters because
@@ -4528,8 +4685,8 @@ function renderFavouriteList() {
     }
   };
 
-  section('start', '🟢', T('favFrom'), '#15803d');
-  section('end',   '🔴', T('favTo'),   '#b91c1c');
+  section('start', '🟢', T('favFrom'), '#166534');
+  section('end',   '🔴', T('favTo'),   '#991b1b');
 
   // ---- SAVED DEPARTURES: no tap at all ----
   heading('🚌', T('favRoutes'), departures.length + '/' + MAX_DEPARTURES);
@@ -4713,10 +4870,10 @@ function drawOneOption(chosenPick) {
   // Only ONE thing on the map should be labelled "A": the stop you board at.
   journeyLayer.clearLayers();
   L.circleMarker([startPoint.lat, startPoint.lng], { radius:7, color:'white',
-    weight:3, fillColor:'#16a34a', fillOpacity:1 }).addTo(journeyLayer)
+    weight:3, fillColor:'#166534', fillOpacity:1 }).addTo(journeyLayer)
     .bindPopup('<b>' + T('start') + '</b><br>' + startPoint.label);
   L.circleMarker([endPoint.lat, endPoint.lng], { radius:7, color:'white',
-    weight:3, fillColor:'#dc2626', fillOpacity:1 }).addTo(journeyLayer)
+    weight:3, fillColor:'#991b1b', fillOpacity:1 }).addTo(journeyLayer)
     .bindPopup('<b>' + T('destination') + '</b><br>' + endPoint.label);
 
   const latLngOf = stop => [Number(stop.lat), Number(stop.long)];
@@ -4737,7 +4894,7 @@ function drawOneOption(chosenPick) {
   const colour = chosenPick.colour;
 
   L.polyline([[startPoint.lat, startPoint.lng], latLngOf(journey.legs[0].on)],
-             { color: '#16a34a', weight: 5, dashArray: '3 9' }).addTo(routeLayer);
+             { color: '#166534', weight: 5, dashArray: '3 9' }).addTo(routeLayer);
 
   journey.legs.forEach((leg, legIndex) => {
     const shape = shapeForLeg(leg);
@@ -4786,7 +4943,7 @@ function drawOneOption(chosenPick) {
 
   const lastLeg = journey.legs[journey.legs.length - 1];
   L.polyline([latLngOf(lastLeg.off), [endPoint.lat, endPoint.lng]],
-             { color: '#dc2626', weight: 5, dashArray: '3 9' }).addTo(routeLayer);
+             { color: '#991b1b', weight: 5, dashArray: '3 9' }).addTo(routeLayer);
 
   map.fitBounds(L.latLngBounds(all), mapPadding());
 
@@ -4837,7 +4994,7 @@ function zoomToStopDetail(stop, fromPoint, leg, isBoarding) {
   const fromLatLng = [fromPoint.lat, fromPoint.lng];
 
   detailLayer.clearLayers();
-  const colour = isBoarding ? '#15803d' : '#b91c1c';
+  const colour = isBoarding ? '#166534' : '#991b1b';
 
   L.polyline([fromLatLng, stopLatLng],
              { color: colour, weight: 5, dashArray: '4 8' }).addTo(detailLayer);
@@ -4907,9 +5064,9 @@ function showJourneyOnMap(journey) {
   const all = [[startPoint.lat, startPoint.lng]];
 
   L.polyline([[startPoint.lat, startPoint.lng], latLngOf(journey.legs[0].on)],
-             { color:'#16a34a', weight:4, dashArray:'2 8' }).addTo(routeLayer);
+             { color:'#166534', weight:4, dashArray:'2 8' }).addTo(routeLayer);
 
-  const colours = ['#1d4ed8', '#7c3aed'];
+  const colours = ['#1e40af', '#6b21a8'];
   journey.legs.forEach((leg, index) => {
     L.polyline([latLngOf(leg.on), latLngOf(leg.off)],
                { color: colours[index % 2], weight:6, opacity:.75 }).addTo(routeLayer);
@@ -4925,7 +5082,7 @@ function showJourneyOnMap(journey) {
 
   const lastLeg = journey.legs[journey.legs.length - 1];
   L.polyline([latLngOf(lastLeg.off), [endPoint.lat, endPoint.lng]],
-             { color:'#dc2626', weight:4, dashArray:'2 8' }).addTo(routeLayer);
+             { color:'#991b1b', weight:4, dashArray:'2 8' }).addTo(routeLayer);
   all.push([endPoint.lat, endPoint.lng]);
 
   markEnds([latLngOf(journey.legs[0].on), latLngOf(lastLeg.off)],
@@ -5115,17 +5272,17 @@ async function loadNextBus(pick) {
     line.className = 'jnext';
     line.innerHTML =
       (differentRoute
-        ? '<div style="font-size:0.8235rem;color:#fde68a;font-weight:700;margin-bottom:4px">' +
+        ? '<div style="font-size:0.94rem;color:#fde68a;font-weight:700;margin-bottom:4px">' +
           T('sooner') + '</div>'
         : '') +
       T('next') + ' ' + soonest.route + ' ' + T('inTime') +
       ' <span class="mins">' +
       (soonest.minutes === 0 ? T('dueNow') : soonest.minutes + T('min')) + '</span>' +
       (arrivals.length > 1
-        ? '<div style="font-size:0.8824rem;font-weight:600;margin-top:5px">' + T('then') + ' ' +
+        ? '<div style="font-size:1rem;font-weight:600;margin-top:5px">' + T('then') + ' ' +
           arrivals.slice(1).map(a => a.route + ' ' + a.minutes + T('min')).join(' · ') + '</div>'
         : '') +
-      '<div style="font-size:0.7647rem;font-weight:600;opacity:.8;margin-top:4px">' +
+      '<div style="font-size:0.94rem;font-weight:600;opacity:.8;margin-top:4px">' +
         T('checked') + ' ' + clock + '</div>';
   } catch (error) {
     line.className = 'jnext waiting';
@@ -5153,7 +5310,7 @@ function drawStops() {
 
   for (const group of mergeNearbyStops(visible)) {
     const marker = L.circleMarker([group.lat, group.lng], {
-      radius:9, color:'#b91c1c', weight:3, fillColor:'#ef4444', fillOpacity:0.9
+      radius:9, color:'#991b1b', weight:3, fillColor:'#ef4444', fillOpacity:0.9
     }).addTo(stopLayer);
 
     marker.bindPopup(stopHeader(group) + '<div class="eta-note">' + T('checkingBus') + '</div>');
@@ -5358,7 +5515,7 @@ function showDirections(routeNo, variants, company) {
   routeList.innerHTML = '';
 
   const back = document.createElement('li');
-  back.innerHTML = '<span style="color:#1d4ed8;font-weight:700">' + T('backToList') + '</span>';
+  back.innerHTML = '<span style="color:#1e40af;font-weight:700">' + T('backToList') + '</span>';
   back.addEventListener('click', () => routeInput.dispatchEvent(new Event('input')));
   routeList.appendChild(back);
 
@@ -5391,12 +5548,12 @@ function showDirections(routeNo, variants, company) {
 function directionRow(from, to, note, onClick) {
   const item = document.createElement('li');
   item.innerHTML =
-    '<div style="font-size:0.8235rem;color:#15803d;font-weight:800">' + T('from') + '</div>' +
+    '<div style="font-size:0.94rem;color:#166534;font-weight:800">' + T('from') + '</div>' +
     '<div style="font-size:1rem;font-weight:700">' + esc(from) + '</div>' +
-    '<div style="font-size:1.2941rem;color:#1d4ed8;margin:2px 0">↓</div>' +
-    '<div style="font-size:0.8235rem;color:#b91c1c;font-weight:800">' + T('to') + '</div>' +
+    '<div style="font-size:1.2941rem;color:#1e40af;margin:2px 0">↓</div>' +
+    '<div style="font-size:0.94rem;color:#991b1b;font-weight:800">' + T('to') + '</div>' +
     '<div style="font-size:1rem;font-weight:700">' + esc(to) + '</div>' +
-    (note ? '<div style="font-size:0.8235rem;color:#92400e;margin-top:4px">⚠ ' + esc(note) + '</div>' : '');
+    (note ? '<div style="font-size:0.94rem;color:#92400e;margin-top:4px">⚠ ' + esc(note) + '</div>' : '');
   item.addEventListener('click', onClick);
   return item;
 }
@@ -5498,6 +5655,135 @@ async function getCtbStop(stopId) {
 }
 
 // ============================================================
+// INSTALLING, AND WORKING WITHOUT A CONNECTION
+// ============================================================
+// Three separate things live here, and they are together because they are
+// all about the app as an app rather than about buses:
+//
+//   1. Registering sw.js, which is what stores the page so it opens with no
+//      signal. What it will and will not store — and why the map is blank
+//      offline — is written at the top of that file.
+//   2. Saying plainly when there is no connection. This app is used at bus
+//      stops, in MTR tunnels and inside buildings, so no connection is a
+//      normal state, not an error. Half the app still works; the rider is
+//      told which half.
+//   3. The "add to home screen" button in SETTINGS. Chrome offers this
+//      itself, buried in a three-dot menu — not a place to send someone who
+//      is new to phones. Caught here and offered as a plain button instead.
+//
+// WHY THE UPDATE IS A BUTTON AND NOT AUTOMATIC
+// A service worker can replace the app the moment a new one is ready. On a
+// phone that could wipe the journey someone is halfway through reading, at
+// the stop, in the rain. So a new version waits, says so on the top bar, and
+// takes over only when it is tapped.
+
+// updateWaiting, installPrompt and updateAsked are declared with the rest of
+// the early-read state near the top, because the top bar and SETTINGS can
+// both ask for them before this point in the file has run.
+
+// The app is already installed if it is running in its own window — which is
+// exactly what "standalone" means. Two spellings: the standard one, and the
+// one iOS has used since before the standard existed.
+function isInstalled() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+      || navigator.standalone === true;
+}
+
+function offlineChip() {
+  const chip = document.createElement('span');
+  chip.className = 'wxoff';
+  chip.textContent = T('offlineChip');
+  chip.title = T('offlineWhat');
+  return chip;
+}
+
+function updateChip() {
+  const button = document.createElement('button');
+  button.className = 'wxupdate';
+  button.textContent = T('updateReady');
+  button.addEventListener('click', () => {
+    if (!updateWaiting || !updateWaiting.waiting) return;
+    updateAsked = true;
+    button.disabled = true;
+    // The new worker takes over, and controllerchange below reloads us into
+    // it. Reloading here instead would show the OLD page one last time.
+    updateWaiting.waiting.postMessage('SKIP_WAITING');
+  });
+  return button;
+}
+
+// Connection state. Both events redraw the top bar, so the notice appears and
+// disappears on its own without the rider having to reload anything.
+window.addEventListener('offline', () => {
+  renderWeatherBar();
+  status.textContent = T('offlineWhat');
+});
+
+window.addEventListener('online', () => {
+  renderWeatherBar();
+  status.textContent = T('backOnline');
+  // The Observatory could not be reached while we were off; ask again now.
+  loadWeather();
+});
+
+// Chrome fires this when the app qualifies for installing. Answering it with
+// preventDefault() takes the browser's own banner away, which is only worth
+// doing because we put a plainer button in SETTINGS in its place.
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  installPrompt = event;
+  if (activeMode === 'set') renderSettings();
+});
+
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  if (activeMode === 'set') renderSettings();
+});
+
+// REGISTERING THE WORKER
+// Only over http(s): opened straight from the file system there is no origin
+// to attach a worker to, and calling this there throws. Deferred to the load
+// event so that storing the app never competes for the connection with the
+// route data the rider is actually waiting for.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(registration => {
+      // A new version may already have been sitting there since last time.
+      if (registration.waiting && navigator.serviceWorker.controller)
+        noteUpdate(registration);
+
+      registration.addEventListener('updatefound', () => {
+        const incoming = registration.installing;
+        if (!incoming) return;
+        incoming.addEventListener('statechange', () => {
+          // "installed" with something already in control means this is a
+          // REPLACEMENT. Without that second test the very first install —
+          // the one that is not an update at all — would announce itself.
+          if (incoming.state === 'installed' && navigator.serviceWorker.controller)
+            noteUpdate(registration);
+        });
+      });
+    }).catch(error => {
+      // Not fatal in the slightest: the app runs exactly as it always did,
+      // just without being installable or working offline.
+      console.warn('Offline support unavailable:', error.message);
+    });
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // ONLY when the rider asked. A worker claiming the page on its first
+      // install also fires this, and reloading there would restart the app
+      // out of nowhere on someone's very first visit.
+      if (updateAsked) location.reload();
+    });
+  });
+}
+
+function noteUpdate(registration) {
+  updateWaiting = registration;
+  renderWeatherBar();
+}
+
+// ============================================================
 // WEATHER — Hong Kong Observatory open data
 // ============================================================
 // Two calls: the current report (temperature per weather station, plus any
@@ -5589,6 +5875,9 @@ async function loadWeather() {
     // Quietly absent rather than an error the rider cannot act on. The bus
     // times are the job; the weather is a courtesy.
     console.warn('Weather unavailable:', error.message);
+    // The bar is redrawn anyway: unreachable usually means no connection,
+    // and THAT is worth saying — it explains the missing live times too.
+    renderWeatherBar();
   }
 }
 
@@ -5608,12 +5897,29 @@ function weatherNear(point) {
   return bestMetres <= WEATHER_NEAR_METRES ? best : null;
 }
 
+// The bar answers one question: what do I need to know before I set off?
+// A rainstorm signal is one answer to it; having no connection is another,
+// and so is a new version of the app waiting to be used. So all three share
+// this one strip rather than each taking its own line of a phone screen.
 function renderWeatherBar() {
   const bar = document.getElementById('weatherbar');
   if (!bar) return;
   bar.innerHTML = '';
-  if (!weatherData) { hideWeatherBar(); return; }
 
+  const parts = [];
+  if (updateWaiting) parts.push(updateChip());
+  if (!navigator.onLine) parts.push(offlineChip());
+  if (weatherData) parts.push(...weatherParts());
+
+  if (parts.length === 0) { hideWeatherBar(); return; }
+  for (const part of parts) bar.appendChild(part);
+  showWeatherBar();
+}
+
+// The weather half, as elements. Split out from the bar itself so that no
+// connection and no weather are two different things: the Observatory being
+// unreachable must not be able to hide the notice explaining why it is.
+function weatherParts() {
   const parts = [];
 
   // ---- WARNINGS FIRST ----
@@ -5668,9 +5974,7 @@ function renderWeatherBar() {
   if (atStart) parts.push(item('🟢 ' + plainStopName(atStart.place), atStart.value + '°'));
   if (atEnd)   parts.push(item('🔴 ' + plainStopName(atEnd.place),   atEnd.value + '°'));
 
-  if (parts.length === 0) { hideWeatherBar(); return; }
-  for (const part of parts) bar.appendChild(part);
-  showWeatherBar();
+  return parts;
 }
 
 // A rough face for the Observatory's icon number. Only the broad groups
@@ -6083,6 +6387,9 @@ function resetTrip() {
 // its constants are declared further down the file than those calls are —
 // and `const` cannot be read before the line declaring it has run. Starting
 // it here is the fix; moving the whole weather section up would be the other.
+// Drawn once before the first request goes out, so that opening the app with
+// no signal says so straight away instead of after a ten-second timeout.
+renderWeatherBar();
 loadWeather();
 setInterval(loadWeather, WEATHER_REFRESH_MS);
 </script>

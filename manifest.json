@@ -1,0 +1,19 @@
+{
+  "name": "香港快線 HK-Fast Route",
+  "short_name": "香港快線",
+  "description": "香港巴士及港鐵路線規劃 — 為長者而設。A Hong Kong bus and MTR journey planner designed for older riders.",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "start_url": "./hkfast.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a8a",
+  "categories": ["travel", "navigation"],
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
