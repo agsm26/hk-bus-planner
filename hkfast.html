@@ -321,6 +321,57 @@
               background:var(--green); color:white; font-weight:800;
               font-size:0.94rem; padding:0 12px; cursor:pointer; }
 
+  /* ==========================================================
+     THE MTR TAB. Station → line → direction → next trains → (destination).
+     Each step is a row of big buttons; the chosen one is filled. Nothing is
+     asked that the data can answer itself: one line is not a choice, one
+     direction with trains is not a choice.
+     ========================================================== */
+  .mtrsub { font-size:1rem; font-weight:800; color:var(--ink-3); margin:14px 0 8px; }
+  .mtrgeo { border:2px solid var(--navy); border-radius:12px; padding:14px; margin-bottom:12px;
+            background:var(--navy-tint); }
+  .mtrsta { display:flex; align-items:center; gap:10px; border:2px solid var(--line-soft);
+            border-radius:12px; padding:12px 14px; margin-bottom:6px; }
+  .mtrsta .mtrname { flex:1; min-width:0; font-size:1.18rem; font-weight:800; color:var(--ink);
+                     overflow-wrap:anywhere; }
+  .mtrsta small { display:block; font-size:0.94rem; font-weight:700; color:var(--ink-3); margin-top:2px; }
+  .mtrpick { display:flex; flex-direction:column; gap:6px; }
+  .mtrpick button { min-height:52px; border:2px solid var(--line); border-radius:10px; background:white;
+                    font-size:1rem; font-weight:700; color:var(--ink); cursor:pointer; text-align:left;
+                    padding:8px 12px; display:flex; align-items:center; gap:10px; }
+  .mtrpick button .mtrdist { margin-left:auto; color:var(--ink-3); font-weight:700; white-space:nowrap; }
+  .mtrlines, .mtrdirs, .mtrdests { display:flex; flex-wrap:wrap; gap:8px; }
+  /* The stripe is the line's own colour — the one every rider already knows.
+     Text stays dark on white so the colour never has to carry the words. */
+  .mtrline { flex:1 1 45%; min-height:52px; border:2px solid var(--line); border-left:12px solid var(--line);
+             border-radius:10px; background:white; font-size:1rem; font-weight:800; color:var(--ink);
+             cursor:pointer; text-align:left; padding:8px 12px; }
+  .mtrline.on { background:var(--navy-tint); border-color:var(--navy); }
+  .mtrdir { flex:1 1 45%; min-height:56px; border:2px solid var(--line); border-radius:10px;
+            background:white; font-size:1.06rem; font-weight:800; color:var(--ink); cursor:pointer;
+            padding:8px 10px; overflow-wrap:anywhere; }
+  .mtrdir.on { background:var(--navy); border-color:var(--navy); color:white; }
+  .mtrtrain { display:flex; align-items:center; gap:12px; border:2px solid var(--line-soft);
+              border-radius:12px; padding:10px 14px; margin-bottom:6px; }
+  .mtrtrain .mtrmin { font-size:1.88rem; font-weight:800; color:var(--green); flex:0 0 auto; min-width:100px; }
+  .mtrtrain .mtrmeta { flex:1; min-width:0; font-size:1rem; font-weight:700; color:var(--ink-2);
+                       overflow-wrap:anywhere; }
+  .mtrtrain.hero { border-color:var(--green); background:var(--green-tint); }
+  .mtrdest { flex:1 1 45%; min-height:48px; border:2px solid var(--line); border-radius:10px;
+             background:white; font-size:1rem; font-weight:700; color:var(--ink); cursor:pointer;
+             padding:6px 10px; overflow-wrap:anywhere; }
+  .mtrdest.on { background:var(--red); border-color:var(--red); color:white; }
+  .mtrsummary { border:2px solid var(--red); border-left-width:12px; border-radius:12px;
+                padding:12px 14px; margin-top:10px; background:white; }
+  .mtrsummary .big { font-size:1.29rem; font-weight:800; color:var(--ink); }
+  .mtrsummary .line { font-size:1rem; font-weight:700; color:var(--ink-2); margin-top:4px; }
+  .mtrsummary .arrive { font-size:1.18rem; font-weight:800; color:var(--green); margin-top:8px; }
+  .mtrhead { display:flex; align-items:center; gap:10px; margin-top:14px; }
+  .mtrhead .mtrsub { flex:1; margin:0; }
+  .mtrupdated { font-size:0.94rem; color:var(--ink-3); font-weight:700; margin:4px 0 8px; }
+  .mtralert { border:2px solid var(--amber); background:var(--amber-tint); color:var(--amber);
+              border-radius:10px; padding:10px 12px; font-weight:700; line-height:1.4; margin:8px 0; }
+
   /* THE TOAST. Fixed under the bars, so it is in view whatever the sheet is
      doing. Dark on light, not a coloured pill: it carries errors, "ready",
      "saved" — all of them — and one plain style keeps it readable for all. */
@@ -539,6 +590,7 @@
      everything except the grip and the list itself steps aside. */
   #panel.favmode > *:not(#favview):not(#sheetgrip) { display:none !important; }
   #panel.setmode > *:not(#setview):not(#sheetgrip) { display:none !important; }
+  #panel.mtrmode > *:not(#mtrview):not(#sheetgrip) { display:none !important; }
   /* ROUTE MODE. Looking up a bus number takes the panel the same way
      favourites and settings do — the trip form is not part of this job. */
   #panel.routemode > *:not(#routefield):not(#routestops):not(#sheetgrip):not(#status) {
@@ -552,7 +604,7 @@
   #panel.routemode #routefield { position:sticky; top:0; z-index:2;
                                  background:white; padding-bottom:6px; margin-bottom:0; }
   #panel.routemode #route-exit { display:block !important; }
-  #panel.favmode, #panel.setmode { top:var(--toph); max-height:calc(100vh - var(--toph));
+  #panel.favmode, #panel.setmode, #panel.mtrmode { top:var(--toph); max-height:calc(100vh - var(--toph));
                   max-height:calc(100dvh - var(--toph)); border-radius:0;
                    padding-top:16px; }
   #favview .favhead, #setview .favhead { font-size:1.1765rem; font-weight:800; color:#111;
@@ -839,6 +891,7 @@
        knows, so the name is now only in the title and the language switch
        lives in SETTINGS. -->
   <div id="setview" style="display:none"></div>
+  <div id="mtrview" style="display:none"></div>
 
   <!-- BUS NUMBER FIRST. "When is my bus coming" is the daily question, and
        most riders know their number; it should not sit below the whole trip
@@ -976,6 +1029,17 @@ const TEXT = {
     noBusesListed:'No buses listed here.', updatedAt:'Updated {t}',
     refresh:'🔄 Refresh times', refreshing:'Refreshing…',
     textSize:'Text size', textNormal:'Normal', textLarge:'Large', textXLarge:'Extra large',
+    mtrTitle:'MTR', mtrGeoTitle:'Find your nearest station?',
+    mtrGeoBody:'If you allow it, the app finds the MTR station closest to you and shows the next trains. Your location stays on this phone.',
+    mtrNearby:'Nearest stations', mtrNoneNear:'No MTR station within 1.5 km. Type a station name instead.',
+    mtrSearchPh:'Type a station name…', mtrSaved:'Your saved stations', mtrChange:'Change',
+    mtrAway:'about {m} m away', mtrNearestTag:'nearest station',
+    mtrChooseLine:'Which line?', mtrChooseDir:'Which direction?', mtrNextTrains:'Next trains',
+    mtrPlatform:'Platform {p}', mtrChooseDest:'Going to… (optional)',
+    mtrStops:'{n} stops', mtrOneStop:'1 stop', mtrRide:'about {m} min on the train',
+    mtrArrive:'Take the train in {w} min — arrive about {t}',
+    mtrArriveNow:'Take the train arriving now — arrive about {t}',
+    mtrTrips:'Your planned trip', mtrShowTrips:'Show train options ({n})',
     dataLoading:'Still loading the bus data — try again in a moment.',
     nearestStop:'Nearest bus stop', getOn:'GET ON', getOff:'GET OFF',
     startAndBoard:'START · BOARD', getOffAndArrive:'GET OFF · ARRIVE',
@@ -1104,6 +1168,17 @@ const TEXT = {
     noBusesListed:'此站沒有班次資料。', updatedAt:'更新於 {t}',
     refresh:'🔄 更新班次', refreshing:'更新中…',
     textSize:'文字大小', textNormal:'標準', textLarge:'大', textXLarge:'特大',
+    mtrTitle:'港鐵', mtrGeoTitle:'尋找最近的港鐵站？',
+    mtrGeoBody:'允許後，本app會找出離你最近的港鐵站，並顯示下班列車。你的位置只留在這部手機。',
+    mtrNearby:'最近的車站', mtrNoneNear:'1.5 公里內沒有港鐵站，請輸入車站名稱。',
+    mtrSearchPh:'輸入車站名稱…', mtrSaved:'你收藏的車站', mtrChange:'更改',
+    mtrAway:'距離約 {m} 米', mtrNearestTag:'最近車站',
+    mtrChooseLine:'選擇路綫', mtrChooseDir:'選擇方向', mtrNextTrains:'下班列車',
+    mtrPlatform:'{p} 號月台', mtrChooseDest:'目的地站（可選）',
+    mtrStops:'{n} 個站', mtrOneStop:'1 個站', mtrRide:'車程約 {m} 分鐘',
+    mtrArrive:'乘搭 {w} 分鐘後的班次，預計 {t} 到達',
+    mtrArriveNow:'乘搭即將到達的班次，預計 {t} 到達',
+    mtrTrips:'已規劃的行程', mtrShowTrips:'查看港鐵行程建議 ({n})',
     dataLoading:'巴士資料仍在載入，請稍候再試。',
     nearestStop:'最近巴士站', getOn:'上車', getOff:'下車',
     startAndBoard:'起點 · 上車', getOffAndArrive:'下車 · 到達',
@@ -2250,6 +2325,7 @@ function applyLanguage() {
   // The language button only exists while SETTINGS is open, so it is redrawn
   // there rather than relied on here.
   if (activeMode === 'set') renderSettings();
+  if (activeMode === 'mtr') renderMtrView();
   // The Observatory returns its own text in the requested language, so the
   // bar needs a fresh fetch rather than a redraw.
   if (typeof loadWeather === 'function') loadWeather();
@@ -3653,7 +3729,8 @@ async function findBuses() {
     setResultsMode(true);            // the form has done its job — hide it
     sheetToResults();
     // Open on whichever tab actually has something in it.
-    showMode(busPicks.length ? 'bus' : 'mtr');
+    if (busPicks.length) showMode('bus');
+    else { activeMode = 'mtr'; paintBottomBar(); showRailResults(); }
 
     // Live arrival times for the FIRST bus of each option. Only three
     // requests — one per option — not one per stop on the map.
@@ -4089,6 +4166,7 @@ function showMode(mode) {
   const panel   = document.getElementById('panel');
   const favView = document.getElementById('favview');
   const setView = document.getElementById('setview');
+  const mtrView = document.getElementById('mtrview');
   const compare = document.getElementById('compare');
   const box     = document.getElementById('journeys');
 
@@ -4108,11 +4186,26 @@ function showMode(mode) {
   if (mode === 'fav') {
     activeMode = 'fav';
     document.getElementById('livestrip').innerHTML = '';
-    panel.classList.remove('setmode');
+    panel.classList.remove('setmode', 'mtrmode');
     setView.style.display = 'none';
+    mtrView.style.display = 'none';
     panel.classList.add('favmode');
     favView.style.display = 'block';
     renderFavouriteList();
+    paintBottomBar();
+    return;
+  }
+
+  // ---- MTR ----
+  // Its own screen: nearest station, line, direction, next trains. The trip
+  // planner's train results are one tap away at the bottom of it.
+  if (mode === 'mtr') {
+    activeMode = 'mtr';
+    document.getElementById('livestrip').innerHTML = '';
+    panel.classList.remove('favmode', 'setmode');
+    favView.style.display = 'none';
+    setView.style.display = 'none';
+    openMtrView();
     paintBottomBar();
     return;
   }
@@ -4122,8 +4215,9 @@ function showMode(mode) {
   if (mode === 'set') {
     activeMode = 'set';
     document.getElementById('livestrip').innerHTML = '';
-    panel.classList.remove('favmode');
+    panel.classList.remove('favmode', 'mtrmode');
     favView.style.display = 'none';
+    mtrView.style.display = 'none';
     panel.classList.add('setmode');
     setView.style.display = 'block';
     renderSettings();
@@ -4131,9 +4225,10 @@ function showMode(mode) {
     return;
   }
 
-  panel.classList.remove('favmode', 'setmode');
+  panel.classList.remove('favmode', 'setmode', 'mtrmode');
   favView.style.display = 'none';
   setView.style.display = 'none';
+  mtrView.style.display = 'none';
   compare.style.display = '';
   box.style.display = '';
   activeMode = mode;
@@ -4271,6 +4366,7 @@ function findMeThenNearby() {
       map.setView([herePoint.lat, herePoint.lng], 16);
       status.textContent = T('foundYou');
       if (activeMode === 'bus') renderLiveStrip('bus');
+      if (activeMode === 'mtr') openMtrView();
     },
     error => { status.textContent = T('locationFailed'); },
     { enableHighAccuracy:true, timeout:10000 });
@@ -4892,9 +4988,10 @@ function openSavedDepartureRoute(dep) {
 // with the number filled in so the search box matches what is on screen.
 function goToRouteMode(routeNo) {
   const panel = document.getElementById('panel');
-  panel.classList.remove('favmode', 'setmode');
+  panel.classList.remove('favmode', 'setmode', 'mtrmode');
   document.getElementById('favview').style.display = 'none';
   document.getElementById('setview').style.display = 'none';
+  document.getElementById('mtrview').style.display = 'none';
   activeMode = 'bus';
   paintBottomBar();
   document.getElementById('route-text').value = routeNo;
@@ -5567,9 +5664,10 @@ const routeList  = document.getElementById('route-results');
 // worse than one that never turned on.
 function enterRouteMode() {
   const panel = document.getElementById('panel');
-  panel.classList.remove('favmode', 'setmode');
+  panel.classList.remove('favmode', 'setmode', 'mtrmode');
   document.getElementById('favview').style.display = 'none';
   document.getElementById('setview').style.display = 'none';
+  document.getElementById('mtrview').style.display = 'none';
   panel.classList.add('routemode');
   // Looking up a bus belongs under the bus tab. Leaving the old section
   // highlighted would point at a screen that is no longer on display.
@@ -5902,6 +6000,333 @@ function noteUpdate(registration) {
   updateWaiting = registration;
   renderWeatherBar();
 }
+
+// ============================================================
+// THE MTR TAB — nearest station, line, direction, next trains
+// ============================================================
+// The official line colours, used only as a stripe on the line buttons: the
+// words stay dark on white, so the colour helps but is never relied on.
+const MTR_LINE_COLOURS = { AEL:'#00888A', TCL:'#F3982D', TWL:'#E2231A', ISL:'#0075C2',
+  KTL:'#00AF41', TKL:'#7D499D', EAL:'#5EB7E8', TML:'#9C2E00', SIL:'#B5BD00', DRL:'#EB6EA5' };
+const MTR_NEAR_M   = 1500;     // further than this and "nearest" is not near
+const MTR_CACHE_MS = 30000;    // the feed itself is refreshed about this often
+
+let mtrState = freshMtrState();
+function freshMtrState() {
+  return { station:null, line:null, dir:null, dest:null,
+           block:null, blockKey:null, fetchedAt:0, alert:null,
+           loading:false, locating:false, locateTried:false, noneNear:false };
+}
+
+function stationName(code) {
+  const s = mtrData && mtrData.stations[code];
+  return s ? (lang === 'zh' ? (s[1] || s[0]) : s[0]) : code;
+}
+
+// The running order of this line that passes through this station (some
+// lines have branch variants), so "ahead" means something.
+function mtrOrderFor(line, station, alsoWith) {
+  const variants = (mtrData.lines || {})[line] || [];
+  return variants.find(v => v.includes(station) && (!alsoWith || v.includes(alsoWith)))
+      || variants.find(v => v.includes(station)) || variants[0] || [];
+}
+
+function openMtrView() {
+  const panel = document.getElementById('panel');
+  const view  = document.getElementById('mtrview');
+  panel.classList.remove('favmode', 'setmode', 'routemode');
+  document.getElementById('favview').style.display = 'none';
+  document.getElementById('setview').style.display = 'none';
+  view.style.display = 'block';
+  panel.classList.add('mtrmode');
+  panel.scrollTop = 0;
+
+  if (!mtrData) {
+    view.innerHTML = '<div class="favhead">🚇 ' + T('mtrTitle') + '</div>' +
+                     '<div class="favempty">' + T('loading') + '</div>';
+    loadMtr().then(() => { if (activeMode === 'mtr') openMtrView(); });
+    return;
+  }
+
+  if (!mtrState.station) {
+    if (herePoint) {
+      const near = railStationsNear(herePoint.lat, herePoint.lng, MTR_NEAR_M);
+      if (near.length) { mtrSetStation(near[0].code); return; }
+      mtrState.noneNear = true;
+    } else if (navigator.geolocation && geoChoice() === 'yes'
+               && !mtrState.locating && !mtrState.locateTried) {
+      // They already said yes once; do not ask again, just look.
+      mtrState.locateTried = true;
+      mtrLocate();
+    }
+  }
+  renderMtrView();
+  if (mtrState.station && mtrState.line) mtrLoadBlock();
+}
+
+function mtrLocate() {
+  if (!navigator.geolocation) { status.textContent = T('noGeo'); return; }
+  mtrState.locating = true; renderMtrView();
+  status.textContent = T('findingYou');
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      herePoint = { lat: position.coords.latitude, lng: position.coords.longitude };
+      mtrState.locating = false;
+      const near = railStationsNear(herePoint.lat, herePoint.lng, MTR_NEAR_M);
+      if (near.length) mtrSetStation(near[0].code);
+      else { mtrState.noneNear = true; renderMtrView(); }
+    },
+    () => { mtrState.locating = false; status.textContent = T('locationFailed'); renderMtrView(); },
+    { enableHighAccuracy:true, timeout:10000 });
+}
+
+function mtrSetStation(code) {
+  mtrState = Object.assign(freshMtrState(), { locateTried: mtrState.locateTried, station: code });
+  const lines = whichLinesServe(code);
+  if (lines.length === 1) mtrState.line = lines[0];     // one line is not a choice
+  renderMtrView();
+  if (mtrState.line) mtrLoadBlock();
+}
+function mtrSetLine(line) {
+  Object.assign(mtrState, { line, dir:null, dest:null, block:null, blockKey:null, alert:null });
+  renderMtrView(); mtrLoadBlock();
+}
+function mtrSetDir(dir)   { mtrState.dir = dir; mtrState.dest = null; renderMtrView(); }
+function mtrSetDest(code) { mtrState.dest = (mtrState.dest === code ? null : code); renderMtrView(); }
+
+// One request: the feed for this line at this station, both directions.
+async function mtrLoadBlock(force) {
+  const { line, station } = mtrState;
+  if (!line || !station) return;
+  const key = line + '-' + station;
+  if (!force && mtrState.blockKey === key && Date.now() - mtrState.fetchedAt < MTR_CACHE_MS) return;
+  mtrState.loading = true; renderMtrView();
+  try {
+    const url = MTR_ETA_URL + '?line=' + encodeURIComponent(line) +
+                '&sta=' + encodeURIComponent(station) + '&lang=' + (lang === 'zh' ? 'TC' : 'EN');
+    const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error('server said ' + response.status);
+    const data = await response.json();
+    if (mtrState.line !== line || mtrState.station !== station) return;   // moved on meanwhile
+    if (data.status === 0) { mtrState.alert = data.message || T('trainAlert'); mtrState.block = {}; }
+    else { mtrState.alert = null; mtrState.block = (data.data || {})[key] || {}; }
+  } catch (error) {
+    mtrState.block = null; mtrState.alert = T('etaOffline');
+  }
+  mtrState.blockKey = key; mtrState.fetchedAt = Date.now(); mtrState.loading = false;
+  // One direction with trains is not a choice either.
+  const dirs = mtrDirections();
+  if (!mtrState.dir && dirs.length === 1) mtrState.dir = dirs[0].key;
+  if (mtrState.dir && !dirs.some(d => d.key === mtrState.dir)) mtrState.dir = dirs.length === 1 ? dirs[0].key : null;
+  renderMtrView();
+}
+
+function mtrTrains(key) {
+  const block = mtrState.block || {};
+  return (block[key] || []).filter(t => t.valid !== 'N')
+    .map(t => ({ min: Number(t.ttnt), dest: t.dest, plat: t.plat }))
+    .filter(t => isFinite(t.min) && t.min >= 0);
+}
+
+// Directions are named by where the trains are actually going, read from the
+// feed, never guessed from the timetable's idea of "up".
+function mtrDirections() {
+  const out = [];
+  for (const key of ['UP', 'DOWN']) {
+    const trains = mtrTrains(key);
+    if (trains.length) out.push({ key, dest: trains[0].dest });
+  }
+  return out;
+}
+
+// Every station ahead in the chosen direction, to the end of the line.
+function mtrStationsAhead() {
+  const { line, station, dir } = mtrState;
+  if (!line || !station || !dir) return [];
+  const trains = mtrTrains(dir);
+  if (!trains.length) return [];
+  const order = mtrOrderFor(line, station, trains[0].dest);
+  const i = order.indexOf(station), d = order.indexOf(trains[0].dest);
+  if (i < 0 || d < 0 || d === i) return [];
+  return d > i ? order.slice(i + 1) : order.slice(0, i).reverse();
+}
+
+function clockIn(minutes) {
+  return new Date(Date.now() + minutes * 60000)
+    .toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderMtrView() {
+  const view = document.getElementById('mtrview');
+  if (!view || !mtrData) return;
+  const st = mtrState;
+  let html = '<div class="favhead">🚇 ' + T('mtrTitle') + '</div>';
+
+  // ---- 1. WHICH STATION ----
+  if (!st.station) {
+    if (st.locating) {
+      html += '<div class="favempty">' + T('findingYou') + '</div>';
+    } else {
+      if (navigator.geolocation && geoChoice() !== 'no' && geoChoice() !== 'yes' && !herePoint) {
+        html += '<div class="mtrgeo"><div class="geotitle">' + T('mtrGeoTitle') + '</div>' +
+                '<div class="geobody">' + T('mtrGeoBody') + '</div>' +
+                '<div class="geobtns"><button class="geoyes" data-mtr-act="geo-yes">' + T('geoYes') + '</button>' +
+                '<button class="geono" data-mtr-act="geo-no">' + T('geoNo') + '</button></div></div>';
+      } else if (navigator.geolocation && !herePoint) {
+        html += '<div class="mtrpick"><button data-mtr-act="geo-yes">' + T('myLocation') + '</button></div>';
+      }
+      if (herePoint) {
+        const near = railStationsNear(herePoint.lat, herePoint.lng, MTR_NEAR_M);
+        if (near.length) {
+          html += '<div class="mtrsub">' + T('mtrNearby') + '</div><div class="mtrpick">' +
+            near.slice(0, 3).map(n => '<button data-mtr-station="' + n.code + '">📍 ' + esc(stationName(n.code)) +
+              '<span class="mtrdist">' + Math.round(n.metres) + ' m</span></button>').join('') + '</div>';
+        } else {
+          html += '<div class="favempty">' + T('mtrNoneNear') + '</div>';
+        }
+      }
+      const saved = savedStations();
+      if (saved.length) {
+        html += '<div class="mtrsub">' + T('mtrSaved') + '</div><div class="mtrpick">' +
+          saved.map(sv => '<button data-mtr-station="' + sv.code + '">⭐ ' + esc(stationName(sv.code)) + '</button>').join('') + '</div>';
+      }
+      html += '<div class="mtrsub">' + T('mtrSearchPh').replace('…', '') + '</div>' +
+              '<div class="frow"><input id="mtr-search" type="text" placeholder="' + esc(T('mtrSearchPh')) + '" autocomplete="off"></div>' +
+              '<div class="mtrpick" id="mtr-search-results"></div>';
+    }
+    view.innerHTML = html;
+    return;
+  }
+
+  // ---- station chosen ----
+  const here = herePoint ? Math.round(metresBetween(herePoint.lat, herePoint.lng,
+                 mtrData.stations[st.station][2], mtrData.stations[st.station][3])) : null;
+  html += '<div class="mtrsta"><div class="mtrname">📍 ' + esc(stationName(st.station)) +
+          (here !== null ? '<small>' + T('mtrAway').replace('{m}', here) + '</small>' : '') + '</div>' +
+          '<button class="refreshbtn" data-mtr-act="change">' + T('mtrChange') + '</button></div>';
+
+  // ---- 2. WHICH LINE ----
+  const lines = whichLinesServe(st.station);
+  if (lines.length > 1) {
+    html += '<div class="mtrsub">' + T('mtrChooseLine') + '</div><div class="mtrlines">' +
+      lines.map(l => '<button class="mtrline' + (st.line === l ? ' on' : '') + '" data-mtr-line="' + l +
+        '" style="border-left-color:' + (MTR_LINE_COLOURS[l] || '#999') + '">' + esc(railLineName(l)) + '</button>').join('') +
+      '</div>';
+  }
+  if (!st.line) { view.innerHTML = html; return; }
+
+  // ---- 3. WHICH DIRECTION ----
+  if (st.loading && !st.block) {
+    html += '<div class="favempty">' + T('rsCheckingEta') + '</div>';
+    view.innerHTML = html; return;
+  }
+  if (st.alert) html += '<div class="mtralert">⚠ ' + esc(st.alert) + '</div>';
+  const dirs = mtrDirections();
+  if (dirs.length === 0) {
+    if (!st.alert) html += '<div class="favempty">' + T('noneDue') + '</div>';
+    html += '<div class="mtrpick"><button data-mtr-act="refresh">' + T('refresh') + '</button></div>';
+    view.innerHTML = html; return;
+  }
+  if (dirs.length > 1) {
+    html += '<div class="mtrsub">' + T('mtrChooseDir') + '</div><div class="mtrdirs">' +
+      dirs.map(d => '<button class="mtrdir' + (st.dir === d.key ? ' on' : '') + '" data-mtr-dir="' + d.key + '">' +
+        T('towards') + ' ' + esc(stationName(d.dest)) + '</button>').join('') + '</div>';
+  }
+  if (!st.dir) { view.innerHTML = html; return; }
+
+  // ---- 4. NEXT TRAINS HERE ----
+  const trains = mtrTrains(st.dir).slice(0, 4);
+  const stamp = new Date(st.fetchedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  html += '<div class="mtrhead"><div class="mtrsub">' + T('mtrNextTrains') + ' · ' + T('towards') + ' ' +
+          esc(stationName(trains[0] ? trains[0].dest : dirs.find(d => d.key === st.dir).dest)) + '</div>' +
+          '<button class="refreshbtn" data-mtr-act="refresh"' + (st.loading ? ' disabled' : '') + '>' +
+          T(st.loading ? 'refreshing' : 'refresh') + '</button></div>';
+  html += trains.map((t, i) => '<div class="mtrtrain' + (i === 0 ? ' hero' : '') + '">' +
+    '<div class="mtrmin">' + (t.min === 0 ? T('due') : t.min + T('min')) + '</div>' +
+    '<div class="mtrmeta">' + T('towards') + ' ' + esc(stationName(t.dest)) +
+    (t.plat ? '<br>' + T('mtrPlatform').replace('{p}', esc(t.plat)) : '') + '</div></div>').join('');
+  html += '<div class="mtrupdated">' + T('updatedAt').replace('{t}', stamp) + '</div>';
+
+  // ---- 5. DESTINATION (optional) ----
+  const ahead = mtrStationsAhead();
+  if (ahead.length) {
+    html += '<div class="mtrsub">' + T('mtrChooseDest') + '</div><div class="mtrdests">' +
+      ahead.map(code => '<button class="mtrdest' + (st.dest === code ? ' on' : '') + '" data-mtr-dest="' + code + '">' +
+        esc(stationName(code)) + '</button>').join('') + '</div>';
+    if (st.dest && ahead.includes(st.dest)) {
+      const stops = ahead.indexOf(st.dest) + 1;
+      const route = railRoute(st.station, st.dest);
+      const ride  = Math.max(1, Math.round(route ? route.cost : stops * 2.5));
+      const wait  = trains[0] ? trains[0].min : 0;
+      const fare  = railFare(st.station, st.dest);
+      html += '<div class="mtrsummary"><div class="big">🚉 ' + esc(stationName(st.dest)) + '</div>' +
+        '<div class="line">' + (stops === 1 ? T('mtrOneStop') : T('mtrStops').replace('{n}', stops)) +
+        ' · ' + T('mtrRide').replace('{m}', ride) + (fare !== null ? ' · $' + fare.toFixed(1) : '') + '</div>' +
+        '<div class="arrive">' + (wait === 0 ? T('mtrArriveNow') : T('mtrArrive').replace('{w}', wait))
+          .replace('{t}', clockIn(wait + ride)) + '</div></div>';
+    }
+  }
+
+  // ---- the planner's train results, if a trip was searched ----
+  if (typeof railPicks !== 'undefined' && railPicks.length) {
+    html += '<div class="mtrsub">' + T('mtrTrips') + '</div><div class="mtrpick">' +
+      '<button data-mtr-act="trips">🧭 ' + T('mtrShowTrips').replace('{n}', railPicks.length) + '</button></div>';
+  }
+  view.innerHTML = html;
+}
+
+function mtrRenderSearch(query) {
+  const box = document.getElementById('mtr-search-results');
+  if (!box || !mtrData) return;
+  const q = String(query || '').trim().toLowerCase();
+  box.innerHTML = '';
+  if (!q) return;
+  const hits = Object.keys(mtrData.stations).filter(code => {
+    const s = mtrData.stations[code];
+    return (s[1] && s[1].includes(q)) || s[0].toLowerCase().includes(q);
+  }).slice(0, 6);
+  box.innerHTML = hits.length
+    ? hits.map(code => '<button data-mtr-station="' + code + '">🚇 ' + esc(stationName(code)) + '</button>').join('')
+    : '<div class="favempty">' + T('noMatch') + '</div>';
+}
+
+// Back to the planner's train cards, for anyone who searched a trip.
+function showRailResults() {
+  const panel = document.getElementById('panel');
+  panel.classList.remove('mtrmode');
+  document.getElementById('mtrview').style.display = 'none';
+  document.getElementById('compare').style.display = '';
+  document.getElementById('journeys').style.display = '';
+  currentPicks = railPicks;
+  if (!currentPicks.length) return;
+  setResultsMode(true);
+  buildCompareStrip(currentPicks);
+  selectOption(currentPicks[0]);
+  panel.scrollTop = 0;
+  currentPicks.forEach(pick => loadNextBus(pick));
+}
+
+// One listener for the whole screen: it is redrawn from scratch on every
+// change, so per-button handlers would be lost on each redraw.
+document.getElementById('mtrview').addEventListener('click', event => {
+  const el = event.target.closest('[data-mtr-station],[data-mtr-line],[data-mtr-dir],[data-mtr-dest],[data-mtr-act]');
+  if (!el) return;
+  const d = el.dataset;
+  if (d.mtrStation) return mtrSetStation(d.mtrStation);
+  if (d.mtrLine)    return mtrSetLine(d.mtrLine);
+  if (d.mtrDir)     return mtrSetDir(d.mtrDir);
+  if (d.mtrDest)    return mtrSetDest(d.mtrDest);
+  switch (d.mtrAct) {
+    case 'change':  mtrState = Object.assign(freshMtrState(), { locateTried: true }); renderMtrView(); break;
+    case 'refresh': mtrLoadBlock(true); break;
+    case 'geo-yes': rememberGeoChoice('yes'); mtrLocate(); break;
+    case 'geo-no':  rememberGeoChoice('no'); renderMtrView(); break;
+    case 'trips':   showRailResults(); break;
+  }
+});
+document.getElementById('mtrview').addEventListener('input', event => {
+  if (event.target.id === 'mtr-search') mtrRenderSearch(event.target.value);
+});
 
 // ============================================================
 // WEATHER — Hong Kong Observatory open data
