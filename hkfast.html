@@ -17,6 +17,7 @@
      draws WHITE status-bar text, and the bar underneath it here is white.
      iOS ignores the manifest icon and reads apple-touch-icon.png instead. -->
 <meta name="theme-color" content="#1e3a8a">
+<meta name="color-scheme" content="light">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -87,7 +88,8 @@
      Tap targets stay in px — 48px is a floor, not something to scale down. */
   html, body { margin:0; padding:0; height:100%; font-family:system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
                -webkit-font-smoothing:antialiased;
-               font-size:clamp(17px, 4.6vw, 21px);
+               font-size:calc(clamp(17px, 4.6vw, 21px) * var(--text-scale, 1));
+               color-scheme:light;   /* Samsung/Chrome auto-dark would invert every colour above */
                -webkit-text-size-adjust:100%;      /* iOS must not re-inflate it */
                -webkit-tap-highlight-color:rgba(0,0,0,.08); }
   #map { height:100%; width:100%; }
@@ -129,7 +131,7 @@
   .btn.armed { background:var(--navy); color:white; border-color:var(--navy); }
 
   .chosen { font-size:1rem; margin-bottom:8px; line-height:1.4; }
-  .chosen.empty { color:var(--ink-3); font-style:italic; }
+  .chosen.empty { color:var(--ink-3); font-weight:600; }
   .chosen small { color:var(--ink-2); }
 
   ul.results { list-style:none; margin:6px 0 0; padding:0; background:white;
@@ -200,7 +202,7 @@
   .favchip .x { position:absolute; top:-6px; right:-6px; width:20px; height:20px;
                 border-radius:12px; background:var(--red); color:white; font-size:13px;
                 font-weight:800; line-height:20px; }
-  .favempty { font-size:0.94rem; color:var(--ink-3); font-style:italic; margin-bottom:8px; }
+  .favempty { font-size:0.94rem; color:var(--ink-3); margin-bottom:8px; }
 
   /* Search, with My location stacked above it where there is one. */
   .fcol { display:flex; flex-direction:column; gap:6px; flex:0 0 auto; }
@@ -318,6 +320,17 @@
   .wxupdate { flex:0 0 auto; min-height:44px; border:none; border-radius:8px;
               background:var(--green); color:white; font-weight:800;
               font-size:0.94rem; padding:0 12px; cursor:pointer; }
+
+  /* THE TOAST. Fixed under the bars, so it is in view whatever the sheet is
+     doing. Dark on light, not a coloured pill: it carries errors, "ready",
+     "saved" — all of them — and one plain style keeps it readable for all. */
+  #toast { position:fixed; top:calc(var(--toph) + 10px); left:12px; right:12px;
+           z-index:1500; background:var(--ink); color:white; border-radius:12px;
+           padding:12px 16px; font-size:1rem; font-weight:700; line-height:1.4;
+           box-shadow:0 6px 20px rgba(0,0,0,.35); pointer-events:none;
+           opacity:0; transform:translateY(-8px);
+           transition:opacity .18s ease, transform .18s ease; }
+  #toast.show { opacity:1; transform:none; }
 
   /* FAVOURITES LIST. Full names, not the two-character chips used in the
      form — this is the screen where someone reads rather than recognises. */
@@ -553,6 +566,17 @@
   #setview .setlabel { flex:1; min-width:0; font-size:1rem; font-weight:700; color:#111; }
   #setview .setnote { color:var(--ink-3); padding:4px 4px 18px; line-height:1.5;
                       font-size:1rem; }
+  #setview .setrow-stack { flex-direction:column; align-items:stretch; gap:10px; }
+  .sizebtns { display:flex; gap:8px; }
+  .sizebtn { flex:1; min-height:50px; border-radius:10px; border:2px solid var(--line);
+             background:white; color:var(--ink); font-size:1rem; font-weight:800;
+             cursor:pointer; }
+  .sizebtn.on { background:var(--navy); border-color:var(--navy); color:white; }
+  /* One refresh control, used on every list that shows live times. */
+  .refreshbtn { flex:0 0 auto; min-height:44px; padding:0 14px; border-radius:10px;
+                border:2px solid var(--line); background:white; color:var(--blue);
+                font-size:1rem; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .refreshbtn:disabled { color:var(--ink-3); }
   .legfare { font-size:1.0588rem; font-weight:800; color:var(--teal); margin-left:12px;
              background:var(--teal-tint); padding:3px 10px; border-radius:8px;
              vertical-align:middle; }
@@ -816,6 +840,25 @@
        lives in SETTINGS. -->
   <div id="setview" style="display:none"></div>
 
+  <!-- BUS NUMBER FIRST. "When is my bus coming" is the daily question, and
+       most riders know their number; it should not sit below the whole trip
+       planner. Typing here switches the panel to "route mode" and the trip
+       form steps aside — the two are different jobs, and on a phone together
+       they are more scrolling than either is worth. -->
+  <div class="field" id="routefield">
+    <div class="flabelrow">
+      <div class="flabel">🚌 查詢巴士路線</div>
+      <button class="rsclose" id="route-exit" style="display:none">✕</button>
+    </div>
+    <div class="frow">
+      <input id="route-text" type="text" inputmode="text" autocapitalize="characters"
+             placeholder="路線號碼，例如 60M" autocomplete="off">
+    </div>
+    <ul class="results" id="route-results"></ul>
+  </div>
+  <!-- Every stop on the chosen route, in order. Filled by renderRouteStops(). -->
+  <div id="routestops"></div>
+
   <!-- START: three ways to set it, exactly like DESTINATION below. -->
   <div class="field">
     <!-- Label and favourites share one row: the five slots were a whole line
@@ -872,23 +915,6 @@
   <div id="journeys"></div>
   <div id="walkinfo"></div>
 
-  <!-- Route lookup. Once anything is typed here the panel switches to
-       "route mode" and everything above steps aside: looking up a bus is a
-       different job from planning a trip, and on a phone the two together
-       are more scrolling than either is worth. -->
-  <div class="field" id="routefield">
-    <div class="flabelrow">
-      <div class="flabel">🚌 查詢巴士路線</div>
-      <button class="rsclose" id="route-exit" style="display:none">✕</button>
-    </div>
-    <div class="frow">
-      <input id="route-text" type="text" placeholder="路線號碼，例如 60M" autocomplete="off">
-    </div>
-    <ul class="results" id="route-results"></ul>
-  </div>
-
-  <!-- Every stop on the chosen route, in order. Filled by renderRouteStops(). -->
-  <div id="routestops"></div>
 
   <button class="btn" id="clear-all" style="width:100%">全部清除</button>
 
@@ -922,6 +948,11 @@
      something real to show, so a failed fetch costs no screen space. -->
 <div id="weatherbar" style="display:none"></div>
 
+<!-- Every message the app has to say goes to #status at the BOTTOM of the
+     panel, which on a phone is usually off screen. This mirrors each new
+     message here, under the bar, for a few seconds. -->
+<div id="toast" role="status" aria-live="polite"></div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ============================================================
@@ -939,6 +970,13 @@ const TEXT = {
     findBuses:'🔍 Find buses A → B', setBoth:'Set both points first',
     lookUp:'🚌 LOOK UP A BUS ROUTE', routePlaceholder:'Route number, e.g. 60M',
     clearAll:'Clear everything', ready:'Ready.', loading:'Loading bus data…',
+    readyZoom:'Ready. Zoom in to see bus stops.', noStopLocations:'No stop locations found.',
+    loadingRoute:'Loading {r}…', couldNotLoadRoute:'Could not load route {r}.',
+    loadingArrivals:'Loading arrivals…', couldNotLoadArrivals:'Could not load arrivals.',
+    noBusesListed:'No buses listed here.', updatedAt:'Updated {t}',
+    refresh:'🔄 Refresh times', refreshing:'Refreshing…',
+    textSize:'Text size', textNormal:'Normal', textLarge:'Large', textXLarge:'Extra large',
+    dataLoading:'Still loading the bus data — try again in a moment.',
     nearestStop:'Nearest bus stop', getOn:'GET ON', getOff:'GET OFF',
     startAndBoard:'START · BOARD', getOffAndArrive:'GET OFF · ARRIVE',
     min:' min', walk:' min walk', bus:' bus', buses:' buses', train:' train', trains:' trains',
@@ -1003,7 +1041,7 @@ const TEXT = {
     langButton:'中文',
     noBusFromStop:'No bus from {stop}', goesToDest:'goes to your destination, so every option below starts from a different stop.',
     option:'Option', aboutMin:'About {n} min door to door (estimate)',
-    pleaseRead:'<b>Please read:</b> options are ordered by how EASY they are, not just how fast — walking and changing bus count against a journey. Times are estimates: walking at 3.5 km/h, plus {t} minutes to change bus. Fares are the full adult fare and may be missing for some routes. KMB, Citybus, New Lantao Bus and green minibus. No MTR. At most one change.',
+    pleaseRead:'<b>Please read:</b> options are ordered by how EASY they are, not just how fast — walking and changing bus count against a journey. Times are estimates: walking at 3.5 km/h, plus {t} minutes to change bus. Fares are the full adult fare and may be missing for some routes. KMB, Citybus, New Lantao Bus, green minibus and MTR. At most one change of bus.',
     credits:'Route and arrival data: Transport Department / DATA.GOV.HK. Route and fare data: HK Bus Crawling@2021. Map from Lands Department © The Government of the HKSAR.',
     optionsFound:'{n} option(s) found.', noNearbyStops:'No bus stops within {m} m of one of your points.',
     couldNotWork:'Could not work out routes:', checkInternet:'Please check your internet and press the button again.',
@@ -1043,7 +1081,7 @@ const TEXT = {
     saveStart:'⭐ Save start "{name}" to favourites', saveEnd:'⭐ Save destination "{name}" to favourites',
     searchCancelled:'Search cancelled — points were cleared.',
     noNearby:'No nearby stops.', nothingFound:'Nothing found.', searchFailed:'Route search failed.',
-    noJourneyBody:'We looked for one bus, and for one change of bus. Your points may be too far apart for KMB alone, or need two or more changes.',
+    noJourneyBody:'We looked for one bus, and for one change of bus. Your points may be too far apart for one bus or one change, or need two or more changes.',
     offlineChip:'📴 No connection',
     offlineWhat:'No connection. Journeys, fares and favourites still work. Live arrival times, the weather and the map need a connection.',
     backOnline:'Back online.',
@@ -1060,6 +1098,13 @@ const TEXT = {
     findBuses:'🔍 搜尋巴士路線 起點 → 目的地', setBoth:'請先設定起點及目的地',
     lookUp:'🚌 查詢巴士路線', routePlaceholder:'路線號碼，例如 60M',
     clearAll:'全部清除', ready:'準備就緒。', loading:'正在載入巴士資料…',
+    readyZoom:'準備就緒。放大地圖可見巴士站。', noStopLocations:'找不到車站位置。',
+    loadingRoute:'正在載入 {r}…', couldNotLoadRoute:'無法載入路線 {r}。',
+    loadingArrivals:'正在查詢班次…', couldNotLoadArrivals:'無法取得班次。',
+    noBusesListed:'此站沒有班次資料。', updatedAt:'更新於 {t}',
+    refresh:'🔄 更新班次', refreshing:'更新中…',
+    textSize:'文字大小', textNormal:'標準', textLarge:'大', textXLarge:'特大',
+    dataLoading:'巴士資料仍在載入，請稍候再試。',
     nearestStop:'最近巴士站', getOn:'上車', getOff:'下車',
     startAndBoard:'起點 · 上車', getOffAndArrive:'下車 · 到達',
     min:' 分鐘', walk:' 分鐘步行', bus:' 程巴士', buses:' 程巴士', train:' 程港鐵', trains:' 程港鐵',
@@ -1124,7 +1169,7 @@ const TEXT = {
     langButton:'English',
     noBusFromStop:'沒有巴士由 {stop} 前往', goesToDest:'你的目的地，因此以下所有選擇均由其他車站出發。',
     option:'選擇', aboutMin:'全程約 {n} 分鐘（估算）',
-    pleaseRead:'<b>請注意：</b>選項按「輕鬆程度」排序，並非只看快慢 — 步行及轉乘會令評分下降。時間為估算：步行速度每小時 3.5 公里，轉乘另加 {t} 分鐘。車費為成人全程收費，部分路線可能沒有資料。包括九巴、城巴、嶼巴及綠色小巴，不包括港鐵，最多轉乘一次。',
+    pleaseRead:'<b>請注意：</b>選項按「輕鬆程度」排序，並非只看快慢 — 步行及轉乘會令評分下降。時間為估算：步行速度每小時 3.5 公里，轉乘另加 {t} 分鐘。車費為成人全程收費，部分路線可能沒有資料。包括九巴、城巴、嶼巴、綠色小巴及港鐵，巴士最多轉乘一次。',
     credits:'路線及到站資料：運輸署 / 資料一站通。路線及車費資料：HK Bus Crawling@2021。地圖來自地政總署 © 香港特別行政區政府。',
     optionsFound:'找到 {n} 個選擇。', noNearbyStops:'你的地點 {m} 米範圍內沒有巴士站。',
     couldNotWork:'無法計算路線：', checkInternet:'請檢查網絡連線後再按一次。',
@@ -1201,6 +1246,25 @@ function stopName(stop) {
 // ============================================================
 const map = L.map('map').setView([22.3193, 114.1694], 11);
 const status = document.getElementById('status');
+
+// Mirror #status into the toast. Dozens of places write status.textContent;
+// watching the element means none of them has to know the toast exists.
+(function watchStatus() {
+  const toast = document.getElementById('toast');
+  if (!toast || typeof MutationObserver === 'undefined') return;
+  let hideTimer = null, last = '';
+  new MutationObserver(() => {
+    const text = status.textContent.trim();
+    if (!text || text === last) return;
+    last = text;
+    toast.textContent = text;
+    toast.classList.add('show');
+    clearTimeout(hideTimer);
+    // Long enough to read at a walking pace; errors linger a little longer.
+    hideTimer = setTimeout(() => toast.classList.remove('show'),
+                           text.length > 40 ? 6000 : 4000);
+  }).observe(status, { childList: true, characterData: true, subtree: true });
+})();
 
 // MAP TILES — Hong Kong Government, Lands Department Topographic Map API.
 // Official, free, and cleaner than a general world map because it is drawn
@@ -1356,7 +1420,7 @@ loadOnce('kmb-stops', 'https://data.etabus.gov.hk/v1/transport/kmb/stop',
     allStops = data;                 // this REPLACES the array...
     addStationsToSearch();           // ...so the stations have to go back in
     drawStops();
-    status.textContent = 'Ready. Zoom in to see bus stops.';
+    status.textContent = T('readyZoom');
   });
 loadOnce('kmb-routes', 'https://data.etabus.gov.hk/v1/transport/kmb/route/', data => { allRoutes = data; });
 loadOnce('ctb-routes', CTB_BASE + '/route/CTB', data => { ctbRoutes = data; });
@@ -1432,7 +1496,7 @@ function setPoint(which, lat, lng, label) {
 }
 
 function useGps(which) {
-  if (!navigator.geolocation) { status.textContent = 'This browser cannot do location.'; return; }
+  if (!navigator.geolocation) { status.textContent = T('noGeo'); return; }
   status.textContent = T('findingYou');
   navigator.geolocation.getCurrentPosition(
     position => setPoint(which, position.coords.latitude, position.coords.longitude, T('myLocationLabel')),
@@ -1666,7 +1730,9 @@ function renderPlaceResults(which, places) {
   const other = which === 'end' ? startPoint : endPoint;
 
   if (places.length === 0) {
-    list.innerHTML = '<li>' + T('noMatch') + '</li>';
+    // Before the stop list has arrived, "no match" is a lie: the app has not
+    // looked yet. Say what is actually happening.
+    list.innerHTML = '<li>' + T(allStops.length === 0 ? 'dataLoading' : 'noMatch') + '</li>';
     return;
   }
 
@@ -2218,7 +2284,9 @@ function applyLanguage() {
   const findButton = document.getElementById('findbuses');
   findButton.textContent = findButton.disabled ? T('setBoth') : T('findBuses');
 
-  document.querySelectorAll('.flabel')[2].textContent = T('lookUp');
+  // By container, never by position: "[2]" silently became the destination
+  // label the day the lookup moved to the top of the form.
+  document.querySelector('#routefield .flabel').textContent = T('lookUp');
   document.querySelectorAll('#routebanner .rb-label')[0].textContent = T('from');
   document.querySelectorAll('#routebanner .rb-label')[1].textContent = T('to');
   document.getElementById('route-text').placeholder = T('routePlaceholder');
@@ -2235,6 +2303,16 @@ function applyLanguage() {
 // changes, so the button this listens for is a different element each time.
 // Listening on the container instead of the button survives that.
 document.getElementById('setview').addEventListener('click', event => {
+  // TEXT SIZE. Saved, applied at once, and the row redrawn so the chosen
+  // button is the filled one.
+  const size = event.target.closest('[data-textsize]');
+  if (size) {
+    textScale = size.dataset.textsize;
+    try { localStorage.setItem('hkfast-textsize', textScale); } catch (e) {}
+    applyTextScale();
+    renderSettings();
+    return;
+  }
   // ADD TO HOME SCREEN. The saved offer can only be used once, so it is
   // dropped either way — accepted or dismissed — and the row redrawn to
   // match what actually happened.
@@ -2262,6 +2340,18 @@ document.getElementById('setview').addEventListener('click', event => {
 });
 
 try { lang = localStorage.getItem('hkfast-lang') || 'zh'; } catch (e) {}
+
+// TEXT SIZE. Everything is in rem, so one multiplier on the root scales the
+// whole app. The phone's own large-text setting does not reach web pages, so
+// this is the only way an older rider gets it. Applied before first paint.
+const TEXT_SCALES = { normal: 1, large: 1.15, xlarge: 1.3 };
+let textScale = 'normal';
+try { textScale = localStorage.getItem('hkfast-textsize') || 'normal'; } catch (e) {}
+if (!TEXT_SCALES[textScale]) textScale = 'normal';
+function applyTextScale() {
+  document.documentElement.style.setProperty('--text-scale', TEXT_SCALES[textScale]);
+}
+applyTextScale();
 
 document.getElementById('start-save').addEventListener('click', () => {
   addFavourite('start', startPoint);
@@ -3976,8 +4066,11 @@ function paintBottomBar() {
   const bar = document.getElementById('bottombar');
   // Settings carries no count: there is nothing to have none of, and "(0)"
   // beside it would read as a section not worth opening.
-  const labels = { bus: T('tabBus') + ' (' + busPicks.length + ')',
-                   mtr: T('tabMtr') + ' (' + railPicks.length + ')',
+  // "(0)" on a section that has simply not been searched yet reads as a
+  // fault. The count appears once there are results to count.
+  const withCount = (label, n) => n > 0 ? label + ' (' + n + ')' : label;
+  const labels = { bus: withCount(T('tabBus'), busPicks.length),
+                   mtr: withCount(T('tabMtr'), railPicks.length),
                    fav: T('tabFav') + ' (' +
                         (favStart.length + favEnd.length + departures.length) + ')',
                    set: T('tabSet') };
@@ -4079,6 +4172,16 @@ function renderSettings() {
       '<span class="setlabel">' + T('settingLanguage') + '</span>' +
       '<button class="gobtn" id="langbtn" style="min-width:110px">' +
         T('langButton') + '</button>' +
+    '</div>' +
+    // Three sizes, the current one filled in. Buttons, not a slider: a slider
+    // is the one control older thumbs reliably struggle with.
+    '<div class="setrow setrow-stack">' +
+      '<span class="setlabel">' + T('textSize') + '</span>' +
+      '<div class="sizebtns">' +
+        [['normal','textNormal'],['large','textLarge'],['xlarge','textXLarge']].map(([k,t]) =>
+          '<button class="sizebtn' + (textScale === k ? ' on' : '') + '" data-textsize="' + k + '">' +
+            T(t) + '</button>').join('') +
+      '</div>' +
     '</div>' +
     installRow() +
     '<div class="setnote">' + T('settingsNote') + '</div>';
@@ -4689,7 +4792,23 @@ function renderFavouriteList() {
   section('end',   '🔴', T('favTo'),   '#991b1b');
 
   // ---- SAVED DEPARTURES: no tap at all ----
-  heading('🚌', T('favRoutes'), departures.length + '/' + MAX_DEPARTURES);
+  const depHead = heading('🚌', T('favRoutes'), departures.length + '/' + MAX_DEPARTURES);
+  if (departures.length > 0) {
+    const refresh = document.createElement('button');
+    refresh.className = 'refreshbtn';
+    refresh.textContent = T('refresh');
+    refresh.style.marginLeft = 'auto';
+    refresh.addEventListener('click', () => {
+      departures.forEach((dep, i) => {
+        const cell = document.getElementById('depeta-' + i);
+        if (cell) { cell.textContent = '…'; cell.classList.remove('quiet'); }
+        loadDepartureEta(dep, i);
+      });
+      status.textContent = T('refreshing');
+    });
+    depHead.style.display = 'flex'; depHead.style.alignItems = 'center';
+    depHead.appendChild(refresh);
+  }
   const deps = document.createElement('div');
   deps.id = 'depslist';
   view.appendChild(deps);
@@ -5374,15 +5493,15 @@ async function loadKmbArrivals(stop, marker) {
       { stop: stop.stop, stopName_en: stop.name_en, stopName_tc: stop.name_tc }));
     const clock = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
     marker.setPopupContent(stopHeader(stop) + formatArrivals(rows) +
-      '<div class="eta-note" style="margin-top:6px">Updated ' + clock + '</div>');
+      '<div class="eta-note" style="margin-top:6px">' + T('updatedAt').replace('{t}', clock) + '</div>');
   } catch (error) {
     marker.setPopupContent(stopHeader(stop) +
-      '<div class="eta-note">Could not load arrivals: ' + error.message + '</div>');
+      '<div class="eta-note">' + T('couldNotLoadArrivals') + '</div>');
   }
 }
 
 function formatArrivals(entries) {
-  if (!entries || entries.length === 0) return '<div class="eta-note">No buses listed here.</div>';
+  if (!entries || entries.length === 0) return '<div class="eta-note">' + T('noBusesListed') + '</div>';
   const now = Date.now(), byRoute = new Map();
 
   for (const entry of entries) {
@@ -5395,7 +5514,7 @@ function formatArrivals(entries) {
     if (!byRoute.has(label)) byRoute.set(label, { minutes: [], sample: entry });
     byRoute.get(label).minutes.push(minutes);
   }
-  if (byRoute.size === 0) return '<div class="eta-note">No buses due right now.</div>';
+  if (byRoute.size === 0) return '<div class="eta-note">' + T('noBusDue') + '</div>';
 
   let html = '';
   for (const [label, group] of byRoute) {
@@ -5506,7 +5625,8 @@ routeInput.addEventListener('input', () => {
     routeList.appendChild(item);
   }
 
-  if (!routeList.children.length) routeList.innerHTML = '<li>' + T('noMatch') + '</li>';
+  if (!routeList.children.length)
+    routeList.innerHTML = '<li>' + T(allRoutes.length === 0 && ctbRoutes.length === 0 ? 'dataLoading' : 'noMatch') + '</li>';
 });
 
 // Step 2: which way is the bus going? Shown as big, plain "A → B" choices,
@@ -5601,14 +5721,14 @@ async function showKmbRoute(route) {
                { co:'KMB', dir:route.bound, serviceType:route.service_type,
                  destEn:route.dest_en, destTc:route.dest_tc });
   } catch (error) {
-    status.textContent = 'Could not load route: ' + error.message;
+    status.textContent = T('couldNotLoadRoute').replace('{r}', route.route);
   }
 }
 
 async function showCtbRoute(route, dir, from, to) {
   routeList.innerHTML = '';
   routeLayer.clearLayers();
-  status.textContent = 'Loading Citybus ' + route.route + '…';
+  status.textContent = T('loadingRoute').replace('{r}', route.route);
   const key = 'ctb-rs-' + route.route + '-' + dir;
 
   try {
@@ -5632,7 +5752,7 @@ async function showCtbRoute(route, dir, from, to) {
                { co:'CTB', dir: dir === 'outbound' ? 'O' : 'I', serviceType:null,
                  destEn:to, destTc:to });
   } catch (error) {
-    status.textContent = 'Could not load Citybus route: ' + error.message;
+    status.textContent = T('couldNotLoadRoute').replace('{r}', route.route);
   }
 }
 
@@ -6042,7 +6162,24 @@ function renderRouteStops(context, stops) {
   close.title = T('rsClose');
   close.setAttribute('aria-label', T('rsClose'));
   close.addEventListener('click', clearRouteStops);
-  head.appendChild(title); head.appendChild(close);
+  // Times are fetched once. A rider waiting at the stop for five minutes is
+  // looking at a number that is five minutes old, so they can ask again —
+  // by hand, which keeps the app's no-timers rule.
+  const refresh = document.createElement('button');
+  refresh.className = 'refreshbtn';
+  refresh.textContent = T('refresh');
+  refresh.addEventListener('click', () => {
+    if (!routeStopsState) return;
+    const keep = { context: routeStopsState.context, stops: routeStopsState.stops,
+                   boardAt: routeStopsState.boardAt };
+    const panel = document.getElementById('panel');
+    const scrollWas = panel ? panel.scrollTop : 0;
+    renderRouteStops(keep.context, keep.stops);
+    if (routeStopsState) { routeStopsState.boardAt = keep.boardAt; paintStopCounts(); }
+    if (panel) panel.scrollTop = scrollWas;
+    status.textContent = T('refreshing');
+  });
+  head.appendChild(title); head.appendChild(refresh); head.appendChild(close);
   box.appendChild(head);
 
   const hint = document.createElement('div');
@@ -6277,12 +6414,12 @@ function paintRoute(routeNo, company, from, to, stops, fill, edge, ctbRouteNo, c
 
     const marker = L.circleMarker([lat, lng], { radius:9, color:edge, weight:3,
       fillColor:fill, fillOpacity:0.9 }).addTo(routeLayer);
-    marker.bindPopup(stopHeader(stop) + '<div class="eta-note">Loading arrivals…</div>');
+    marker.bindPopup(stopHeader(stop) + '<div class="eta-note">' + T('loadingArrivals') + '</div>');
     marker.on('popupopen', () => ctbRouteNo
       ? loadCtbArrivals(stop, marker, ctbRouteNo)
       : loadKmbArrivals(stop, marker));
   }
-  if (points.length === 0) { status.textContent = 'No stop locations found.'; return; }
+  if (points.length === 0) { status.textContent = T('noStopLocations'); return; }
 
   L.polyline(points, { color:fill, weight:4, opacity:0.6, dashArray:'6 6' }).addTo(routeLayer);
   markEnds(points, from, to);
@@ -6311,7 +6448,7 @@ async function loadCtbArrivals(stop, marker, routeNo) {
     marker.setPopupContent(stopHeader(stop) + formatArrivals((await response.json()).data));
   } catch (error) {
     marker.setPopupContent(stopHeader(stop) +
-      '<div class="eta-note">Could not load arrivals: ' + error.message + '</div>');
+      '<div class="eta-note">' + T('couldNotLoadArrivals') + '</div>');
   }
 }
 
